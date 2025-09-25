@@ -11,7 +11,6 @@ void cal(char inp[]){
         }
     }
     inp[j] = '\0';
-    printf("White Space Ignored : %s",inp);
 
     //Validity check 
     size_t len = strlen(inp);
@@ -30,7 +29,6 @@ void cal(char inp[]){
         return;
     }
     //Expression Evalution
-    printf("Expression evalution: ");
     int num = 0;
     int res =0 , lastTerm =0;
     char op = '+';
@@ -53,6 +51,10 @@ void cal(char inp[]){
                 lastTerm = lastTerm * num;
             }
             else if(op == '/'){
+                if(num ==0){ 
+                    printf("Error: Division by zero.");
+                    return;
+                }
                 lastTerm = lastTerm /num;
             }
             op = ch;
@@ -65,6 +67,5 @@ void cal(char inp[]){
 int main(){
     char exp[50];
     fgets(exp , sizeof(exp) , stdin); //String Input
-    printf("Entered : %s",exp); 
-    cal(exp);
+    cal(exp); //Function Calling
 }
