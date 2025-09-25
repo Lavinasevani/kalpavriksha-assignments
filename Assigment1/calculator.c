@@ -32,16 +32,35 @@ void cal(char inp[]){
     //Expression Evalution
     printf("Expression evalution: ");
     int num = 0;
+    int res =0 , lastTerm =0;
+    char op = '+';
     for(int i =0; inp[i] != '\0' ;i++){
         char ch = inp[i];
         if(isdigit(ch)){
             num = num  * 10 +(ch-'0'); //Number 
-        }else{
-            break;
+        }
+        //operation
+        if(!isdigit(ch)||inp[i+1] == '\0'){
+            if(op=='+'){
+                res = res + lastTerm;
+                lastTerm =num;
+            }
+            else if(op == '-'){
+                res = res +lastTerm;
+                lastTerm = -num;
+            }
+            else if(op == '*'){
+                lastTerm = lastTerm * num;
+            }
+            else if(op == '/'){
+                lastTerm = lastTerm /num;
+            }
+            op = ch;
+            num = 0;
         }
     }
-    printf("%d",num);
-    
+    res = res+ lastTerm;
+    printf("%d",res);   
 }
 int main(){
     char exp[50];
