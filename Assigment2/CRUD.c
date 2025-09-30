@@ -15,6 +15,18 @@ void createUser(){
     fclose(fptr);
     printf("User Created.\n");
 }
+void readUser(){
+    FILE *fptr;
+    fptr = fopen("user.txt" , "r");
+    int UID,age;
+    char name[100];
+    printf("UID\tName\tAge\n");
+    while(fscanf(fptr , "%d %s %d", &UID ,&name, &age)==3){
+        printf("%d\t%s\t%d\n",UID , name ,age);
+    }
+    fclose(fptr);
+    printf("All User fetched.");
+}
 int main(){
     int choice ;
     while(true)
@@ -25,7 +37,7 @@ int main(){
             createUser();
         }
         else if(choice==2){
-            printf("All User fetched.");
+            readUser();
         }
         else if(choice==3){
             printf("User Updated.");
