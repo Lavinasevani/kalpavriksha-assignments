@@ -27,6 +27,29 @@ void readUser(){
     fclose(fptr);
     printf("All User fetched.");
 }
+void deleteUser(){
+    FILE *fptr, *tptr;
+    struct User u;
+    int id = 0;
+    bool found = false;
+    printf("Enter Id to delete the user : ");
+    scanf("%d",&id);
+    fptr = fopen("user.txt", "r");
+    tptr = fopen("temp.txt","w");
+    while (fscanf(fptr,"%d %s %d", &u.uid, u.name ,&u.age) ==3 ) {
+        if (u.uid == id) {
+            found = true; 
+            continue;  
+        }
+        fprintf(tptr, "%d %s %d\n", u.uid, u.name, u.age);
+    }
+    fclose(fptr);
+    fclose(tptr);
+    remove("user.txt");
+    rename("temp.txt","user.txt");
+    if(found) printf("User with id %d deleted.",id);
+    else printf("User not found.");
+}
 int main(){
     int choice ;
     while(true)
@@ -43,7 +66,7 @@ int main(){
             printf("User Updated.");
         }
         else if(choice==4){
-             printf("User Deleted.");
+             deleteUser();
         }
         else if(choice==5){
             printf("Exiting.. \nTHANK YOU !!");
