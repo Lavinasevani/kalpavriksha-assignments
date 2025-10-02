@@ -1,3 +1,2 @@
-1 Jack 12
-3 Smith 14
-4 Lavina 17
+1 Smith 17
+2 Tom 17
