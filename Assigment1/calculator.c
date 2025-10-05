@@ -2,6 +2,55 @@
 #include <string.h>
 #include <ctype.h>
 
+// Stack for numbers
+int numStack[100];
+int numTop = -1;
+void pushNum(int val) {
+    numStack[++numTop] = val;
+}
+int popNum() {
+    return numStack[numTop--];
+}
+int peekNum() {
+    return numStack[numTop];
+}
+
+// Stack for operators
+char opStack[100];
+int opTop = -1;
+void pushOp(char op) {
+    opStack[++opTop] = op;
+}
+char popOp() {
+    return opStack[opTop--];
+}
+char peekOp() {
+    return opStack[opTop];
+}
+
+// Function to get operator precedence
+int precedence(char op) {
+    if (op == '*' || op == '/') return 2; //higher
+    if (op == '+' || op == '-') return 1; //lower
+    return 0;
+}
+
+// Function to perform operation
+int applyOp(int a, int b, char op, int *error) {
+    switch(op) {
+        case '+': return a + b;
+        case '-': return a - b;
+        case '*': return a * b;
+        case '/':
+            if (b == 0) {
+                *error = 1;
+                return 0;
+            }
+            return a / b;
+    }
+    return 0;
+}
+
 void evaluateExpression(char input[]) {       // Function to evaluate arithmetic expression
     //White space handling
     int j = 0;
@@ -33,11 +82,12 @@ void evaluateExpression(char input[]) {       // Function to evaluate arithmetic
         }
     }
 
-    // Check logical operator placement (first/last and consecutive operators)
+    // Check logical operator placement first/last 
     if (!isdigit(input[0]) || !isdigit(input[strlen(input) - 1])) {
         printf("Invalid expression.\n");
         return;
     }
+    // Check consecutive operators
     for (int k = 1; input[k] != '\0'; k++) {
         if (!isdigit(input[k]) && !isdigit(input[k - 1])) {
             printf("Invalid expression.\n");
@@ -46,42 +96,50 @@ void evaluateExpression(char input[]) {       // Function to evaluate arithmetic
     }
 
     //Expression Evaluation
+    numTop = -1; //reset stack 
+    opTop = -1;
+    
+    int error = 0;
     int currentNumber = 0;
-    int result = 0, lastValue = 0;
-    char currentOperator = '+';
-
+    
+    // Stack-based expression evaluation with DMAS
     for (int i = 0; input[i] != '\0'; i++) {
-        char ch = input[i];
-
-        if (isdigit(ch)) {
-            currentNumber = currentNumber * 10 + (ch - '0'); // build multi-digit number
-        }
-
-        // operation when operator or at the end 
-        if (!isdigit(ch) || input[i + 1] == '\0') {
-            if (currentOperator == '+') {
-                result = result + lastValue;
-                lastValue = currentNumber;
-            } else if (currentOperator == '-') {
-                result = result + lastValue;
-                lastValue = -currentNumber;
-            } else if (currentOperator == '*') {
-                lastValue = lastValue * currentNumber;
-            } else if (currentOperator == '/') {
-                if (currentNumber == 0) {
+        if (isdigit(input[i])) { 
+            currentNumber = currentNumber * 10 + (input[i] - '0'); //Build number
+            if (input[i + 1] == '\0' || !isdigit(input[i + 1])) { // If next char is operator or end, push the number
+                pushNum(currentNumber);
+                currentNumber = 0;
+            }
+        } else {
+            char currentOp = input[i];
+            // Process operators with higher or equal precedence
+            while (opTop >= 0 && precedence(peekOp()) >= precedence(currentOp)) {
+                char op = popOp();
+                int b = popNum();
+                int a = popNum();
+                int result = applyOp(a, b, op, &error);  
+                if (error) {
                     printf("Error: Division by zero.\n");
                     return;
                 }
-                lastValue = lastValue / currentNumber;
+                pushNum(result);
             }
-
-            currentOperator = ch;
-            currentNumber = 0;
+            pushOp(currentOp);
         }
     }
-
-    result = result + lastValue;
-    printf(" %d \n", result);
+    // Process remaining operators in stack
+    while (opTop >= 0) {
+        char op = popOp();
+        int b = popNum();
+        int a = popNum();
+        int result = applyOp(a, b, op, &error);  
+        if (error) {
+            printf("Error: Division by zero.\n");
+            return;
+        }
+        pushNum(result);
+    }
+    printf("%d\n", peekNum()); //result
 }
 
 int main() {
