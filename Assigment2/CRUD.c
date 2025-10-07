@@ -1,12 +1,44 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
+#include <ctype.h>
+
+#define MIN_AGE 0
+#define MAX_AGE 150
+#define MAX_NAME_SIZE 100
+
 // Structure of user 
 struct User {
     int uid;
-    char name[100];
+    char name[MAX_NAME_SIZE];
     int age;
 };
+
+// Function to trim leading and trailing whitespace and check if string has valid content
+bool isValidName(char *str) {
+    int start = 0, end = strlen(str) - 1;
+    
+    while (start <= end && isspace((unsigned char)str[start])) {    // Find first non-whitespace character
+        start++;
+    }
+    
+    while (end >= start && isspace((unsigned char)str[end])) {  // Find last non-whitespace character
+        end--;
+    }
+    
+    if (start > end) {    // If all whitespace or empty
+        return false;
+    }
+    
+    // Shift valid content to beginning of string
+    int i;
+    for (i = 0; start <= end; i++, start++) {
+        str[i] = str[start];
+    }
+    str[i] = '\0';
+    
+    return true;
+}
 
 void createUser(){
     struct User newUser, tempUser;
@@ -17,12 +49,13 @@ void createUser(){
         while (getchar() != '\n'); 
         return;
     }
-    getchar(); //clear buffer
+    while (getchar() != '\n'); //clear buffer completely
     printf("Enter Name: ");
     fgets(newUser.name, sizeof(newUser.name), stdin);       // can take input "FirstName LastName"
     newUser.name[strcspn(newUser.name, "\n")] = '\0';       // remove the newline character added by fgets at the end of input 
-    if (strlen(newUser.name) == 0) {        // Validate name is not empty
-        printf("Error: Name cannot be empty.\n");
+    // Validate name is not empty or only whitespace
+    if (!isValidName(newUser.name)) {
+        printf("Error: Name cannot be empty or contain only spaces.\n");
         return;
     }
     printf("Enter Age: ");
@@ -31,8 +64,10 @@ void createUser(){
         while (getchar() != '\n'); 
         return;
     }
-    if (newUser.age < 0 || newUser.age > 150) {     // Validate age range
-        printf("Error: Please enter a valid age (0-150).\n");
+    while (getchar() != '\n'); // Clear buffer completely (handles cases like "23abc")
+
+    if (newUser.age < MIN_AGE|| newUser.age > MAX_AGE) {     // Validate age range
+        printf("Error: Please enter a valid age (%d-%d).\n",MIN_AGE, MAX_AGE);
         return;
     }
     // Checking for Unique user ID
@@ -75,11 +110,11 @@ void readUser(){
         return;
     }
     int userId, userAge;
-    char userName[100];
+    char userName[MAX_NAME_SIZE];
     printf("\n%-10s %-30s %-10s\n", "UID", "Name", "Age");
     while (fscanf(filePtr, "%d", &userId) == 1) {
-        fgets(userName, sizeof(userName), filePtr); 
-        fgets(userName, sizeof(userName), filePtr);
+        fgets(userName, sizeof(userName), filePtr); // First fgets() reads the newline left by fscanf()
+        fgets(userName, sizeof(userName), filePtr); // Second fgets() reads the actual name line
         userName[strcspn(userName, "\n")] = '\0'; 
         fscanf(filePtr, "%d", &userAge);   
         printf("%-10d %-30s %-10d\n", userId, userName, userAge);
@@ -92,7 +127,7 @@ void updateUser(){
     FILE *filePtr, *tempFilePtr;  
     struct User currentUser;
     int searchId, newAge;
-    char newName[100];
+    char newName[MAX_NAME_SIZE];
     bool userFound = false;
     //user input to update data  
     printf("Enter User ID to update: ");
@@ -101,12 +136,13 @@ void updateUser(){
         while (getchar() != '\n'); 
         return;
     }
-    getchar();
+    while (getchar() != '\n');
     printf("Enter new name: "); //Get new name 
     fgets(newName, sizeof(newName), stdin);
     newName[strcspn(newName, "\n")] = '\0';  // remove the newline character added by fgets at the end of input 
-    if (strlen(newName) == 0) {
-        printf("Error: Name cannot be empty.\n");
+    // Validate name is not empty or only whitespace
+    if (!isValidName(newName)) {
+        printf("Error: Name cannot be empty or contain only spaces.\n");
         return;
     }
     printf("Enter new age: ");     // Get new age
@@ -115,8 +151,9 @@ void updateUser(){
         while (getchar() != '\n');
         return;
     }
-    if (newAge < 0 || newAge > 150) {
-        printf("Error: Please enter a valid age (0-150).\n");
+    while (getchar() != '\n');
+    if (newAge < MIN_AGE|| newAge > MAX_AGE) {
+        printf("Error: Please enter a valid age (%d-%d).\n", MIN_AGE, MAX_AGE);
         return;
     }
     filePtr = fopen("user.txt", "r"); //original file
@@ -132,8 +169,8 @@ void updateUser(){
     }
     // copy the data from user.txt -> temp.txt
     while (fscanf(filePtr, "%d", &currentUser.uid) == 1) {
-        fgets(currentUser.name, sizeof(currentUser.name), filePtr); 
-        fgets(currentUser.name, sizeof(currentUser.name), filePtr); 
+        fgets(currentUser.name, sizeof(currentUser.name), filePtr); // First fgets() reads the newline left by fscanf()
+        fgets(currentUser.name, sizeof(currentUser.name), filePtr); // Second fgets() reads the actual name line
         currentUser.name[strcspn(currentUser.name, "\n")] = '\0';
         fscanf(filePtr, "%d", &currentUser.age);
         if (currentUser.uid == searchId) {
@@ -163,6 +200,7 @@ void deleteUser(){
         while (getchar() != '\n'); 
         return;
     }
+    while (getchar() != '\n');
     filePtr = fopen("user.txt", "r"); // Original file
     if (filePtr == NULL) {
         printf("No user file found.\n");
@@ -176,8 +214,8 @@ void deleteUser(){
     }
     // Copy all users except the one to be deleted
     while (fscanf(filePtr, "%d", &currentUser.uid) == 1) {
-        fgets(currentUser.name, sizeof(currentUser.name), filePtr);
-        fgets(currentUser.name, sizeof(currentUser.name), filePtr);
+        fgets(currentUser.name, sizeof(currentUser.name), filePtr); // First fgets() reads the newline left by fscanf()
+        fgets(currentUser.name, sizeof(currentUser.name), filePtr); // Second fgets() reads the actual name line
         currentUser.name[strcspn(currentUser.name, "\n")] = '\0';
         fscanf(filePtr, "%d", &currentUser.age);
         if (currentUser.uid == searchId) {
@@ -205,6 +243,7 @@ int main(){
             while (getchar() != '\n');
             continue;
         }
+        while (getchar() != '\n');
         switch (choice) {
             case 1:
                 createUser();
