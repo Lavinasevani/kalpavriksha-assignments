@@ -2,51 +2,85 @@
 #include <string.h>
 #include <ctype.h>
 
-// Stack for numbers
-int numStack[100];
-int numTop = -1;
-void pushNum(int val) {
-    numStack[++numTop] = val;
-}
-int popNum() {
-    return numStack[numTop--];
-}
-int peekNum() {
-    return numStack[numTop];
+#define MAX_STACK_SIZE 100
+
+// ---------- Stack Utilities ----------
+int isStackFull(int top) {
+    return top >= MAX_STACK_SIZE - 1;
 }
 
-// Stack for operators
-char opStack[100];
-int opTop = -1;
-void pushOp(char op) {
-    opStack[++opTop] = op;
-}
-char popOp() {
-    return opStack[opTop--];
-}
-char peekOp() {
-    return opStack[opTop];
+int isStackEmpty(int top) {
+    return top < 0;
 }
 
-// Function to get operator precedence
-int precedence(char op) {
-    if (op == '*' || op == '/') return 2; //higher
-    if (op == '+' || op == '-') return 1; //lower
+// ---------- Number Stack ----------
+int numberStack[MAX_STACK_SIZE];
+int numberTop = -1;
+
+void pushNumber(int value) {
+    if (isStackFull(numberTop)) {
+        printf("Error: Number stack overflow.\n");
+        return;
+    }
+    numberStack[++numberTop] = value;
+}
+
+int popNumber() {
+    if (isStackEmpty(numberTop)) {
+        printf("Error: Number stack underflow.\n");
+        return 0;
+    }
+    return numberStack[numberTop--];
+}
+
+int peekNumber() {
+    return numberStack[numberTop];
+}
+
+// ---------- Operator Stack ----------
+char operatorStack[MAX_STACK_SIZE];
+int operatorTop = -1;
+
+void pushOperator(char operator) {
+    if (isStackFull(operatorTop)) {
+        printf("Error: Operator stack overflow.\n");
+        return;
+    }
+    operatorStack[++operatorTop] = operator;
+}
+
+char popOperator() {
+    if (isStackEmpty(operatorTop)) {
+        printf("Error: Operator stack underflow.\n");
+        return 0;
+    }
+    return operatorStack[operatorTop--];
+}
+
+char peekOperator() {
+    return operatorStack[operatorTop];
+}
+
+// ---------- Helper Functions ----------
+
+int getOperatorPrecedence(char operator) {
+    if (operator == '*' || operator == '/') return 2; //higher
+    if (operator == '+' || operator == '-') return 1; //lower
     return 0;
 }
 
 // Function to perform operation
-int applyOp(int a, int b, char op, int *error) {
-    switch(op) {
-        case '+': return a + b;
-        case '-': return a - b;
-        case '*': return a * b;
+int applyOperation(int operandOne, int operandTwo, char operator, int *error) {
+    switch(operator) {
+        case '+': return operandOne + operandTwo;
+        case '-': return operandOne - operandTwo;
+        case '*': return operandOne * operandTwo;
         case '/':
-            if (b == 0) {
+            if (operandTwo == 0) {
                 *error = 1;
                 return 0;
             }
-            return a / b;
+            return operandOne / operandTwo;
     }
     return 0;
 }
@@ -87,6 +121,7 @@ void evaluateExpression(char input[]) {       // Function to evaluate arithmetic
         printf("Invalid expression.\n");
         return;
     }
+    
     // Check consecutive operators
     for (int k = 1; input[k] != '\0'; k++) {
         if (!isdigit(input[k]) && !isdigit(input[k - 1])) {
@@ -96,8 +131,8 @@ void evaluateExpression(char input[]) {       // Function to evaluate arithmetic
     }
 
     //Expression Evaluation
-    numTop = -1; //reset stack 
-    opTop = -1;
+    numberTop = -1; //reset stack 
+    operatorTop = -1;
     
     int error = 0;
     int currentNumber = 0;
@@ -107,39 +142,41 @@ void evaluateExpression(char input[]) {       // Function to evaluate arithmetic
         if (isdigit(input[i])) { 
             currentNumber = currentNumber * 10 + (input[i] - '0'); //Build number
             if (input[i + 1] == '\0' || !isdigit(input[i + 1])) { // If next char is operator or end, push the number
-                pushNum(currentNumber);
+                pushNumber(currentNumber);
                 currentNumber = 0;
             }
         } else {
-            char currentOp = input[i];
+            char currentOperator = input[i];
             // Process operators with higher or equal precedence
-            while (opTop >= 0 && precedence(peekOp()) >= precedence(currentOp)) {
-                char op = popOp();
-                int b = popNum();
-                int a = popNum();
-                int result = applyOp(a, b, op, &error);  
+            while (operatorTop >= 0 && getOperatorPrecedence(peekOperator()) >= getOperatorPrecedence(currentOperator)) {
+                char operator = popOperator();
+                int operandTwo = popNumber();
+                int operandOne = popNumber();
+                int result = applyOperation(operandOne, operandTwo, operator, &error);  
                 if (error) {
                     printf("Error: Division by zero.\n");
                     return;
                 }
-                pushNum(result);
+                pushNumber(result);
             }
-            pushOp(currentOp);
+            pushOperator(currentOperator);
         }
     }
+    
     // Process remaining operators in stack
-    while (opTop >= 0) {
-        char op = popOp();
-        int b = popNum();
-        int a = popNum();
-        int result = applyOp(a, b, op, &error);  
+    while (operatorTop >= 0) {
+        char operator = popOperator();
+        int operandTwo = popNumber();
+        int operandOne = popNumber();
+        int result = applyOperation(operandOne, operandTwo, operator, &error);  
         if (error) {
             printf("Error: Division by zero.\n");
             return;
         }
-        pushNum(result);
+        pushNumber(result);
     }
-    printf("%d\n", peekNum()); //result
+    
+    printf("%d\n", peekNumber()); //result
 }
 
 int main() {
