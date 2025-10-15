@@ -15,6 +15,28 @@ void generateSonarImage(int matrixSize, int (*image)[matrixSize]) {
     }
 }
 
+void swap(int *num1, int *num2) {
+    int temp = *num1;
+    *num1 = *num2;
+    *num2 = temp;
+}
+
+void rotateImage(int matrixSize, int (*image)[matrixSize]) {
+    // Step 1. Transpose of orginal matrix
+    for (int i = 0; i < matrixSize; i++) {
+        for (int j = i+1; j < matrixSize; j++) {
+            swap(&*(*(image+i)+j), &*(*(image+j)+i));
+        }
+    }
+    // Step 2. Reverse rows
+
+    for (int i =0 ; i < matrixSize; i++){
+        for(int j = 0, k = matrixSize - 1; j < k; j++, k--){
+            swap(&*(*(image+i)+j), &*(*(image+i)+k));
+        }
+    }
+}
+
 void displayImage(int matrixSize, int (*image)[matrixSize]) {
     for(int i = 0; i < matrixSize; i++) {
         for(int j = 0; j < matrixSize; j++) {
@@ -38,12 +60,17 @@ int main() {
         printf("Invalid Matrix Size.");
         return 1;
     }
-    
+
     int originalImage[matrixSize][matrixSize]; // as the size of image is small so storing into stack memory
     srand(time(NULL)); // Seed random generator to genrate diffrent images at each run
 
     generateSonarImage(matrixSize, originalImage);
+
     printf("Original:\n");
+    displayImage(matrixSize, originalImage);
+
+    printf("Rotated:\n");
+    rotateImage(matrixSize, originalImage);
     displayImage(matrixSize, originalImage);
 
     return 0;
