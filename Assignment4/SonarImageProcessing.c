@@ -2,19 +2,22 @@
 #include <stdlib.h>
 #include <time.h>
 
+// MACROS for configuration
 #define MIN_MATRIX_SIZE 2
 #define MAX_MATRIX_SIZE 10
 #define MIN_PIXEL_OF_IMAGE 0
 #define MAX_PIXEL_OF_IMAGE 255
 
+// function to fill the matrix with random pixel intensity values (0–255)
 void generateSonarImage(int matrixSize, int (*image)[matrixSize]) {
-    for(int i = 0; i < matrixSize; i++) {
-        for(int j = 0; j < matrixSize; j++) {
+    for(int i = 0; i < matrixSize; i++) { //row
+        for(int j = 0; j < matrixSize; j++) { //column
            *(*(image + i) + j) = rand() % (MAX_PIXEL_OF_IMAGE - MIN_PIXEL_OF_IMAGE + 1) + MIN_PIXEL_OF_IMAGE; 
         }
     }
 }
 
+// function to swap two integer values using pointers
 void swap(int *num1, int *num2) {
     int temp = *num1;
     *num1 = *num2;
@@ -28,11 +31,42 @@ void rotateImage(int matrixSize, int (*image)[matrixSize]) {
             swap(&*(*(image+i)+j), &*(*(image+j)+i));
         }
     }
-    // Step 2. Reverse rows
 
+    // Step 2. Reverse rows
     for (int i =0 ; i < matrixSize; i++){
         for(int j = 0, k = matrixSize - 1; j < k; j++, k--){
             swap(&*(*(image+i)+j), &*(*(image+i)+k));
+        }
+    }
+}
+
+void smoothingFilter(int matrixSize, int (*image)[matrixSize]) {
+
+    int smoothedRow[matrixSize];  // temporary storage for a row
+
+    for (int i = 0; i < matrixSize; i++) { //row
+        for (int j = 0; j < matrixSize; j++) { //column
+
+            int sumOfElements = 0, numberOfElements = 0; // for 3 x 3 window of neighbor
+
+            // Traverse all neighbors in 3x3 window centered at (i, j)
+            for (int rowOffset = -1; rowOffset <= 1; rowOffset++) { 
+                for (int colOffset = -1; colOffset <= 1; colOffset++) {
+                    int neighborRow = i + rowOffset;
+                    int neighborCol = j + colOffset;
+                    // Check bounds and include valid neighboring cells only
+                    if (neighborRow >= 0 && neighborRow < matrixSize && neighborCol >= 0 && neighborCol < matrixSize) {
+                        sumOfElements += *(*(image + neighborRow) + neighborCol);
+                        numberOfElements++;
+                    }
+                }
+            }
+            smoothedRow[j] = sumOfElements / numberOfElements;  // store average pixel
+        }
+
+        // Copy temporary smoothedRow back to image row
+        for (int j = 0; j < matrixSize; j++) {
+            *(*(image + i) + j) = smoothedRow[j];
         }
     }
 }
@@ -52,6 +86,7 @@ int main() {
 
     printf("Enter matrix size (%d - %d): ", MIN_MATRIX_SIZE, MAX_MATRIX_SIZE);
 
+    // validate user input
     if (scanf("%d", &matrixSize) != 1) {
         printf("Invalid Input.");
         return 1;
@@ -71,6 +106,10 @@ int main() {
 
     printf("Rotated:\n");
     rotateImage(matrixSize, originalImage);
+    displayImage(matrixSize, originalImage);
+
+    printf("Final Output:\n");
+    smoothingFilter(matrixSize, originalImage);
     displayImage(matrixSize, originalImage);
 
     return 0;
