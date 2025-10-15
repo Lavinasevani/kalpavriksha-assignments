@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 // Macro definitions for program constraints
 #define MAX_NAME_LENGTH 100
@@ -145,10 +146,19 @@ int main(){
     }else if (numberOfStudents < MIN_NUMBER_OF_STUDENTS || numberOfStudents > MAX_NUMBER_OF_STUDENTS) {
         printf("Invalid number it should be from %d to %d", MIN_NUMBER_OF_STUDENTS, MAX_NUMBER_OF_STUDENTS);
         return 1;
-    }    
-    struct Student students[numberOfStudents]; 
+    }  
+
+    // Allocating the memory into heap rather then stack to prevent stack overflow 
+    struct Student* students = malloc(numberOfStudents * sizeof(struct Student));
+    if (students == NULL) {
+        printf("Memory allocation failed!\n");
+        return 1;
+    }
+
     inputStudentDetails(students, numberOfStudents);
     displayStudentPerformance(students, numberOfStudents);
 
+    free(students); // Cleanup or release allocated memory
+    
     return 0;
 }
