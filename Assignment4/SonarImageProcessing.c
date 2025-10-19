@@ -15,6 +15,17 @@ void generateSonarImage(int matrixSize, int (*image)[matrixSize]) {
            *(*(image + i) + j) = rand() % (MAX_PIXEL_OF_IMAGE - MIN_PIXEL_OF_IMAGE + 1) + MIN_PIXEL_OF_IMAGE; 
         }
     }
+    //for testing
+    // int fixed[3][3] = {
+    //     {101, 59, 231},
+    //     {68, 62, 143},
+    //     {140, 185, 247}
+    // };
+    // for (int i = 0; i < 3; i++) {
+    //     for (int j = 0; j < 3; j++) {
+    //         *(*(image + i) + j) = fixed[i][j];
+    //     }
+    // }
 }
 
 // function to swap two integer values using pointers
@@ -42,34 +53,40 @@ void rotateImage(int matrixSize, int (*image)[matrixSize]) {
 
 void smoothingFilter(int matrixSize, int (*image)[matrixSize]) {
 
-    int smoothedRow[matrixSize];  // temporary storage for a row
+    // Pass 1: compute smoothed value and encode it in higher bits
+    for (int i = 0; i < matrixSize; i++) {
+        for (int j = 0; j < matrixSize; j++) {
+            int sumOfElements = 0, numberOfElements = 0;
 
-    for (int i = 0; i < matrixSize; i++) { //row
-        for (int j = 0; j < matrixSize; j++) { //column
-
-            int sumOfElements = 0, numberOfElements = 0; // for 3 x 3 window of neighbor
-
-            // Traverse all neighbors in 3x3 window centered at (i, j)
-            for (int rowOffset = -1; rowOffset <= 1; rowOffset++) { 
+            for (int rowOffset = -1; rowOffset <= 1; rowOffset++) {
                 for (int colOffset = -1; colOffset <= 1; colOffset++) {
                     int neighborRow = i + rowOffset;
                     int neighborCol = j + colOffset;
-                    // Check bounds and include valid neighboring cells only
-                    if (neighborRow >= 0 && neighborRow < matrixSize && neighborCol >= 0 && neighborCol < matrixSize) {
-                        sumOfElements += *(*(image + neighborRow) + neighborCol);
+
+                    if (neighborRow >= 0 && neighborRow < matrixSize &&
+                        neighborCol >= 0 && neighborCol < matrixSize) {
+                        // '& 0xFF' ensures we only read the original (lower byte) value
+                        sumOfElements += (*(*(image + neighborRow) + neighborCol)) & 0xFF;
                         numberOfElements++;
                     }
                 }
             }
-            smoothedRow[j] = sumOfElements / numberOfElements;  // store average pixel
-        }
 
-        // Copy temporary smoothedRow back to image row
+            // Compute rounded average value (sum / count, with +count/2 for rounding)
+            int averagePixel = (sumOfElements + numberOfElements / 2) / numberOfElements;
+            *(*(image + i) + j) |= (averagePixel << 8); // Store this new pixel temporarily in higher 8 bits of same integer cell
+        }
+    }
+
+    // Pass 2: move the smoothed values into the lower byte
+    for (int i = 0; i < matrixSize; i++) {
         for (int j = 0; j < matrixSize; j++) {
-            *(*(image + i) + j) = smoothedRow[j];
+            // shift right by 8 bits to move new value into the lower byte
+            *(*(image + i) + j) >>= 8;
         }
     }
 }
+
 
 void displayImage(int matrixSize, int (*image)[matrixSize]) {
     for(int i = 0; i < matrixSize; i++) {
