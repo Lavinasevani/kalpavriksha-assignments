@@ -9,49 +9,38 @@
 #define MAX_PIXEL_OF_IMAGE 255
 
 // function to fill the matrix with random pixel intensity values (0–255)
-void generateSonarImage(int matrixSize, int (*image)[matrixSize]) {
+void generateSonarImage(int matrixSize, int **image) {
     for(int i = 0; i < matrixSize; i++) { //row
         for(int j = 0; j < matrixSize; j++) { //column
            *(*(image + i) + j) = rand() % (MAX_PIXEL_OF_IMAGE - MIN_PIXEL_OF_IMAGE + 1) + MIN_PIXEL_OF_IMAGE; 
         }
     }
-    //for testing
-    // int fixed[3][3] = {
-    //     {101, 59, 231},
-    //     {68, 62, 143},
-    //     {140, 185, 247}
-    // };
-    // for (int i = 0; i < 3; i++) {
-    //     for (int j = 0; j < 3; j++) {
-    //         *(*(image + i) + j) = fixed[i][j];
-    //     }
-    // }
 }
 
 // function to swap two integer values using pointers
-void swap(int *num1, int *num2) {
-    int temp = *num1;
-    *num1 = *num2;
-    *num2 = temp;
+void swapPixels(int *pixel1, int *pixel2) {
+    int temp = *pixel1;
+    *pixel1 = *pixel2;
+    *pixel2 = temp;
 }
 
-void rotateImage(int matrixSize, int (*image)[matrixSize]) {
-    // Step 1. Transpose of orginal matrix
+void rotateImage(int matrixSize, int **image) {
+    // Step 1. Transpose of orginal matrix (swap [i][j] <-> [j][i])
     for (int i = 0; i < matrixSize; i++) {
-        for (int j = i+1; j < matrixSize; j++) {
-            swap(&*(*(image+i)+j), &*(*(image+j)+i));
+        for (int j = i+1; j < matrixSize; j++) { // This operation is done only for the upper triangle (i < j)
+            swapPixels(&*(*(image+i)+j), &*(*(image+j)+i)); // Each pixel at (i, j) is swapped with (j, i).
         }
     }
 
-    // Step 2. Reverse rows
+    // Step 2. Reverse each rows: after transposing, reversing each row gives a 90° clockwise rotation
     for (int i =0 ; i < matrixSize; i++){
         for(int j = 0, k = matrixSize - 1; j < k; j++, k--){
-            swap(&*(*(image+i)+j), &*(*(image+i)+k));
+            swapPixels(&*(*(image+i)+j), &*(*(image+i)+k)); // Swap first and last elements in the row moving inward
         }
     }
 }
 
-void smoothingFilter(int matrixSize, int (*image)[matrixSize]) {
+void applysmoothingFilter(int matrixSize, int **image) {
 
     // Pass 1: compute smoothed value and encode it in higher bits
     for (int i = 0; i < matrixSize; i++) {
@@ -88,7 +77,7 @@ void smoothingFilter(int matrixSize, int (*image)[matrixSize]) {
 }
 
 
-void displayImage(int matrixSize, int (*image)[matrixSize]) {
+void displayImage(int matrixSize, int **image) {
     for(int i = 0; i < matrixSize; i++) {
         for(int j = 0; j < matrixSize; j++) {
            printf("%3d  ", (*(*(image + i) + j))); // "%3d " for 3-digit spacing alignment
@@ -113,7 +102,13 @@ int main() {
         return 1;
     }
 
-    int originalImage[matrixSize][matrixSize]; // as the size of image is small so storing into stack memory
+
+    // Dynamic memory allocation (heap)
+    int **originalImage = (int **)malloc(matrixSize * sizeof(int *));
+    for (int i = 0; i < matrixSize; i++) {
+        *(originalImage + i) = (int *)malloc(matrixSize * sizeof(int));
+    }
+
     srand(time(NULL)); // Seed random generator to genrate diffrent images at each run
 
     generateSonarImage(matrixSize, originalImage);
@@ -126,8 +121,14 @@ int main() {
     displayImage(matrixSize, originalImage);
 
     printf("Final Output:\n");
-    smoothingFilter(matrixSize, originalImage);
+    applysmoothingFilter(matrixSize, originalImage);
     displayImage(matrixSize, originalImage);
+
+    // Free allocated heap memory
+    for (int i = 0; i < matrixSize; i++) {
+        free(*(originalImage + i));
+    }
+    free(originalImage);
 
     return 0;
 
