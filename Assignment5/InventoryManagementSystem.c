@@ -6,7 +6,7 @@
 
 // Product name constraints
 #define MIN_LENGTH_OF_NAME 1
-#define MAX_LENGTH_OF_NAME 50
+#define MAX_LENGTH_OF_NAME 51 // +1 for null terminator
 
 // Product ID constraints
 #define MIN_PRODUCT_ID 1
@@ -31,7 +31,17 @@ struct product {
     int quantity;
 };
 
+int getProductIndexByID(struct product *productPointer, int totalProducts, int searchID) {
+    for (int productIndex = 0; productIndex < totalProducts; productIndex++) {
+        if ((productPointer + productIndex)->productId == searchID) {
+            return productIndex;  // Found - return index
+        }
+    }
+    return -1;  // Not found - return -1
+}
+
 void removeExtraSpaces(char *name) {
+
     if (name == NULL) return;
 
     // Step 1: Remove leading whitespace (spaces and tabs)
@@ -56,17 +66,17 @@ void removeExtraSpaces(char *name) {
 
     // Step 3: Replace multiple consecutive spaces with single space
     int readPosition = 0, writePosition = 0;
-    bool previousWasSpace = false;
+    bool isPrevCharSpace = false;
 
     while (name[readPosition] != '\0') {
         if (name[readPosition] == ' ' || name[readPosition] == '\t') {
-            if (!previousWasSpace) {
+            if (!isPrevCharSpace) {
                 name[writePosition++] = ' ';  // Keep only one space
-                previousWasSpace = true;
+                isPrevCharSpace = true;
             }
         } else {
             name[writePosition++] = name[readPosition];
-            previousWasSpace = false;
+            isPrevCharSpace = false;
         }
         readPosition++;
     }
@@ -81,23 +91,15 @@ bool isValidName(char name[MAX_LENGTH_OF_NAME]) {
         return false;
     }
 
-    removeExtraSpaces(name); // Clean up spaces
-
-    //Cannot be empty after removing extra spaces
-    if (strlen(name) == 0) {
+    //Cannot be empty 
+    if (strlen(name) ==  (MIN_LENGTH_OF_NAME -1)) {
         printf("Error: Product name cannot be empty.\n");
         return false;
     }
-    // Must be less than MAX_LENGTH_OF_NAME
-    if (strlen(name) >= MAX_LENGTH_OF_NAME) {
-        printf("Error: Product name too long (max %d characters).\n", MAX_LENGTH_OF_NAME - 1);
-        return false;
-    }
-
     bool hasNonSpaceChar = false;
     for (int indexOfName = 0; name[indexOfName] != '\0'; indexOfName++) {
         //Can only contain alphanumeric characters and spaces
-        if (!isalnum((unsigned char)name[indexOfName]) && name[indexOfName] != ' ') {
+        if (!isalnum((unsigned char)name[indexOfName]) && name[indexOfName] != ' ' && name[indexOfName] != '\t')  {
             printf("Error: Product name contains invalid character '%c'. Only letters, digits, and spaces are allowed.\n", name[indexOfName]);
             return false;
         }
@@ -113,9 +115,12 @@ bool isValidName(char name[MAX_LENGTH_OF_NAME]) {
         printf("Error: Product name cannot contain only spaces.\n");
         return false;
     }
+    removeExtraSpaces(name); // Clean up spaces to store clean value
     return true;
 }
-
+bool isDuplicateID(struct product *allProducts, int totalProducts, int productID) {
+    return getProductIndexByID(allProducts, totalProducts, productID) != -1;
+}
 bool collectProductInfo(struct product *productPointer, int productIndex, struct product *allProducts, int totalProducts) {
     int productId;
     char productName[MAX_LENGTH_OF_NAME];
@@ -133,11 +138,9 @@ bool collectProductInfo(struct product *productPointer, int productIndex, struct
         return false;
     }
     // Check for duplicate ProductID
-    for (int i = 0; i < totalProducts; i++) {
-        if ((allProducts + i)->productId == productId) {
-            printf("Error: Product ID %d already exists.\n", productId);
-            return false;
-        }
+    if (isDuplicateID(allProducts, totalProducts, productId)) {
+        printf("Error: Product ID %d already exists.\n", productId);
+        return false;
     }
     (productPointer + productIndex)->productId = productId;
     while (getchar() != '\n');
@@ -147,10 +150,22 @@ bool collectProductInfo(struct product *productPointer, int productIndex, struct
         printf("Error: Cannot read name.\n");
         return false;
     }
+    int nameLength = strlen(productName);
+    if (nameLength == MAX_LENGTH_OF_NAME - 1) {
+        int nextChar = getchar();  // Peek at next character
+        if (nextChar != '\n' && nextChar != EOF) {  // User typed more than 50 chars -> REJECT
+            printf("Error: Product name too long (max %d characters).\n", MAX_LENGTH_OF_NAME - 1);
+            while (getchar() != '\n' && getchar() != EOF);
+            return false;
+        }
+        ungetc(nextChar, stdin);  // Put character back into stdin
+    }
+
     productName[strcspn(productName, "\n")] = '\0'; // Remove newline at the end added by fgets
     if (!isValidName(productName)) {
         return false;
     }
+    
     strcpy((productPointer + productIndex)->productName, productName);
     // Input and validate Product price
     printf("Product Price: ");
@@ -181,7 +196,7 @@ bool collectProductInfo(struct product *productPointer, int productIndex, struct
     return true;
 }
 // Collects initial product details for all products
-bool inputProductDetails(int numberOfProducts, struct product *productPointer) {
+bool addProductDetails(int numberOfProducts, struct product *productPointer) {
     for (int productIndex = 0; productIndex < numberOfProducts; productIndex++) {
         printf("Enter details for product: %d\n", productIndex + 1);
         if (!collectProductInfo(productPointer, productIndex, productPointer, numberOfProducts))
@@ -235,24 +250,17 @@ void searchProductByID(struct product *productPointer, int totalProducts){
         while (getchar() != '\n');
         return;
     }
-    bool isIDFound = false;
-
-    // Linear search through all products 
-    for(int productIndex = 0; productIndex < totalProducts; productIndex++) {
-        if(searchID == (productPointer + productIndex) -> productId) {
-            isIDFound = true;
-            printf("\nProduct Found: Product ID: %d | Name: %s | Price: %.2f | Quantity: %d \n", 
-            (productPointer + productIndex)->productId,
-            (productPointer + productIndex)->productName,
-            (productPointer + productIndex)->price,
-            (productPointer + productIndex)->quantity);
-            break; // Product ID is unique, stop after finding
-        }
-    }
-    if(! isIDFound){
-        printf("Product not found with the ID: %d \n", searchID);
+    int productIndex = getProductIndexByID(productPointer, totalProducts, searchID);
+    
+    if (productIndex == -1) {
+        printf("Product not found with the ID: %d\n", searchID);
         return;
     }
+    printf("\nProduct Found: Product ID: %d | Name: %s | Price: %.2f | Quantity: %d \n", 
+    (productPointer + productIndex)->productId,
+    (productPointer + productIndex)->productName,
+    (productPointer + productIndex)->price,
+    (productPointer + productIndex)->quantity);
     return;
 }
 //searchName is a substring of productName (case-insensitive)
@@ -372,6 +380,12 @@ void updateQuantitybyID(struct product *productPointer, int totalProducts){
         while (getchar() != '\n');
         return;
     }
+    int productIndex = getProductIndexByID(productPointer, totalProducts, searchId);
+    
+    if (productIndex == -1) {
+        printf("Product not found with the ID: %d\n", searchId);
+        return;
+    }
     // Get new Quantity value
     int newQuantity;
     printf("Enter new Quantity: ");
@@ -385,22 +399,9 @@ void updateQuantitybyID(struct product *productPointer, int totalProducts){
         printf("Quantity must be between %d and %d\n", MIN_QUANTITY, MAX_QUANTITY);
         return ;
     }
-    
-    bool isIDFound = false;
-    for(int productIndex = 0; productIndex < totalProducts; productIndex++) {
-        if(searchId == (productPointer + productIndex) -> productId) {
-            isIDFound = true;
-            (productPointer + productIndex)->quantity = newQuantity; // replace the current quantity with the new one
-            printf("Quantity updated successfully!\n");
-            break;
-        }
-    }
-    if(! isIDFound){
-        printf("Product not found with the ID: %d\n", searchId);
-        return;
-    }
+    (productPointer + productIndex)->quantity = newQuantity;
+    printf("Quantity updated successfully!\n");
     return;
-
 }
 
 void deleteProductbyID(struct product **productPointer, int *totalProducts){
@@ -413,20 +414,13 @@ void deleteProductbyID(struct product **productPointer, int *totalProducts){
         return;
     }
     // Search to get index of product to delete
-    bool isIDFound = false;
-    int indexToDelete = -1;
-    for (int indexProduct = 0; indexProduct < *totalProducts; indexProduct++) {
-        if ((*productPointer + indexProduct)->productId == searchID) {
-            isIDFound = true;
-            indexToDelete = indexProduct;
-            break;
-        }
-    }
-    if (!isIDFound) {
+    int indexToDelete = getProductIndexByID(*productPointer, *totalProducts, searchID);
+    
+    if (indexToDelete == -1) {
         printf("Product not found with ID: %d\n", searchID);
         return;
     }
-    
+
     // Shift elements to remove the product
     for (int indexProduct = indexToDelete; indexProduct < *totalProducts - 1; indexProduct++) {
         (*productPointer)[indexProduct] = (*productPointer)[indexProduct + 1];
@@ -459,6 +453,7 @@ int main() {
         return 1;
     }
     while (getchar() != '\n');
+    
     // Dynamically allocate memory for products
     struct product *productPointer = calloc(numberOfProducts, sizeof(struct product));
     if (productPointer == NULL) {
@@ -466,7 +461,7 @@ int main() {
         return 1;
     }
     // Collect initial product details
-    if (inputProductDetails(numberOfProducts, productPointer)) {
+    if (addProductDetails(numberOfProducts, productPointer)) {
         // Main menu loop
         bool exitProgram = false;
         while (!exitProgram) {
