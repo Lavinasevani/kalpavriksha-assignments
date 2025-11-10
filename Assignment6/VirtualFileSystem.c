@@ -356,7 +356,13 @@ void writePerform(char *fileName, char *data) {
         printf("Error: File name required.\n");
         return;
     }
-    trimSpaces(fileName);   
+    trimSpaces(fileName);  
+    
+    if (data == NULL || strlen(data) == 0) {
+        printf("Error: No data provided to write.\n");
+        return;
+    }
+    
     if (data == NULL) data = ""; 
     trimSpaces(data);
 
