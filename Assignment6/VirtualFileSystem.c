@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <ctype.h>
 
-#define MAX_BUFFER_LENGTH 512                   // Max command input length
+#define MAX_BUFFER_LENGTH 524288                  // Max command input length
 #define MAX_STRING_LENGTH 50                    // Max dir / file length
 #define MAX_FILE_BLOCKS 100                     // Max blocks per file
 #define BLOCK_SIZE 512
@@ -13,7 +13,7 @@
 struct FileNode{
     char name[MAX_STRING_LENGTH];               // name of dir or file
     bool isDirectory;                           //directory or file 
-   int blockPointers[MAX_FILE_BLOCKS];          //to store block indices
+    int blockPointers[MAX_FILE_BLOCKS];          //to store block indices
     int numBlocks;                              // count the number of blocks used
     int size;                                   // size of file (content) 
     struct FileNode *parent;                    // parent 
