@@ -1,6 +1,48 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include "Players_data.h"
+
+#define MIN_ID 1
+#define MAX_ID 1000
+#define MIN_PLAYERS 11
+#define MAX_PLAYERS 50
+#define MIN_NAME_LENGTH 1
+#define MAX_NAME_LENGTH 50
+
+enum Role {Batsman = 1, Bowler, All_rounder};
+struct NodePlayer{
+    Player data;
+    struct NodePlayer *next;
+};
+
+struct NodePlayer *headPlayerLL = NULL;
+struct NodePlayer *tailPlayerLL = NULL;
+void initalizePlayers(){
+    for(int index = 0; index < playerCount ; index++){
+        struct NodePlayer *newNodePlayer = (struct NodePlayer*)malloc(sizeof(struct NodePlayer));
+        newNodePlayer->data = players[index];
+        newNodePlayer->next = NULL;
+        if(headPlayerLL == NULL){
+            headPlayerLL = newNodePlayer;
+            tailPlayerLL = newNodePlayer;
+        }else{
+            tailPlayerLL->next = newNodePlayer;
+            tailPlayerLL = newNodePlayer;
+        }
+    }
+}
+
+void displayList(struct NodePlayer *head) {
+    struct NodePlayer *temp = head;
+    while (temp != NULL) {
+        Player p = temp->data;
+        printf("%d %s (%s) - %s\n", p.id, p.name, p.team, p.role);
+        printf("   Runs: %d | Avg: %.1f | SR: %.1f | Wkts: %d | Eco: %.1f\n\n",
+               p.totalRuns, p.battingAverage, p.strikeRate, p.wickets, p.economyRate);
+        temp = temp->next;
+    }
+}
 
 void printMenu(){
     printf("==================================================================================\n");
@@ -15,6 +57,12 @@ void printMenu(){
     printf("==================================================================================");
     return;
 }
+
+void addPlayerToTeam(){
+    printf("Choice 1 -> Add Player to Team");
+    return;
+}
+
 void getChoice(){
     int choice;
     printf("\nEnter your choice: ");
@@ -24,20 +72,22 @@ void getChoice(){
     }
     switch (choice)
     {
-    case 1:
-        printf("Choice 1 -> AddPlayertoTeam");
+    case 1:{
+        addPlayerToTeam();
+        
         break;
+    } 
     case 2:
-        printf("Choice 2 -> Display AllPlayers of a Specific Team");
+        printf("Choice 2 -> Display All Players of a Specific Team");
         break;
     case 3:
-        printf("Choice 3 -> Display TeamsbyAverageBatting StrikeRate");
+        printf("Choice 3 -> Display Teams by Average Batting StrikeRate");
         break;
     case 4:
-        printf("Choice4 -> DisplayTopKPlayersofaSpecificTeamofspecificrole");
+        printf("Choice4 -> Display Top K Players of a Specific Team of specific role");
         break;
     case 5:
-        printf("Choice5 -> DisplayAllPlayersAcrossAllTeamsofspecificrole");
+        printf("Choice5 -> Display All Players Across All Teams of specific role");
         break;
     case 6:
         printf("Exiting...");
@@ -48,9 +98,13 @@ void getChoice(){
         break;
     }
 }
+
 int main(){
+    initalizePlayers();
+    displayList(headPlayerLL);
     printMenu();
-    getChoice();
+    printf("%d", teamCount);
+    printf("%d", playerCount);
     while (true)
     {
         getChoice();
