@@ -423,10 +423,14 @@ void getPlayerbyRoleId(){
         return;
     }
     printf("%s of all teams:\n", roles[roleId -1]);
+
+    printf("====================================================================================\n");
+    printf("ID | Name | Team | Role | Runs |  Avg |  SR |  Wkts | ER | Perf.IndexName\n");
+    printf("====================================================================================\n");
     struct NodePlayer *temp = headPlayerLL;
     while(temp != NULL){
         if(temp->roleID == roleId){
-            printf("%d | %s |  %d | %0.1f | %.1f | %d | %.1f | %.2f\n", temp->id, temp->name,  temp->totalRuns, temp->battingAverage, temp->strikeRate, temp->wickets, temp->economyRate, temp->PerformanceIndex);
+            printf("%d | %s | %s | %s | %d | %0.1f | %.1f | %d | %.1f | %.1f\n", temp->id, temp->name, teams[temp->teamID -1], roles[temp->roleID -1], temp->totalRuns, temp->battingAverage, temp->strikeRate, temp->wickets, temp->economyRate, temp->PerformanceIndex);
         }
         temp = temp->next;
     }
@@ -478,6 +482,8 @@ void getChoice(){
         getPlayerbyRoleId();
         break;
     case 6:
+        freePlayers();
+        freeTeams();
         printf("Exiting...");
         exit(0);
         break;
@@ -486,6 +492,30 @@ void getChoice(){
         break;
     }
 }
+
+void freePlayers() {
+    struct NodePlayer *temp = headPlayerLL;
+    while (temp != NULL) {
+        struct NodePlayer *next = temp->next;
+
+        free(temp->name);     // free string
+        free(temp);           // free node
+
+        temp = next;
+    }
+}
+void freeTeams() {
+    struct Team *temp = teamHead;
+    while (temp != NULL) {
+        struct Team *next = temp->next;
+
+        free(temp->name);     // free string
+        free(temp);           // free node
+
+        temp = next;
+    }
+}
+
 
 int main(){
 
