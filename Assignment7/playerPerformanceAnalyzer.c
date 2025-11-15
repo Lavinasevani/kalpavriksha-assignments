@@ -82,6 +82,7 @@ int getRoleId(const char *roleName){
     return -1;
 }
 
+
 struct NodePlayer *headPlayerLL = NULL;
 struct NodePlayer *tailPlayerLL = NULL;
 void calAvgSR(){
@@ -108,6 +109,9 @@ void calAvgSR(){
     }
     return;
 }
+void freePlayers();
+void freeTeams();
+
 void initalizePlayers(){
     for(int index = 0; index < playerCount ; index++){
 
@@ -173,7 +177,7 @@ void addPlayerToTeam(){
         temp = temp->next;
     }
     if(teamPlayerCount >= MAX_PLAYERS){
-        printf("The team %s is Full can't add more player into this them.",teams[teamId -1]);
+        printf("The team %s is Full can't add more player into this them.",  teams[teamId -1]);
         return;
     }
     int playerId, roleId, totalRun, wicket;
