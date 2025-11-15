@@ -13,7 +13,8 @@
 
 const char *roles[] = {"Batsman", "Bowler", "All-rounder"};
 int numberOfRoles = sizeof(roles) / sizeof(roles[0]);
-enum Role { BATSMAN = 1, BOWLER, ALL_ROUNDER };
+enum Role { BATSMAN = 1, BOWLER = 2, ALL_ROUNDER = 3 };
+
 struct NodePlayer{
 
     int id;
@@ -43,7 +44,7 @@ struct Team{
 struct Team *teamHead = NULL;
 struct Team *teamTail = NULL;
 void initializeTeam(){
-    for(int i = 0 ; i < teamCount ; i++){
+    for(int i = 0; i < teamCount; i++){
         struct Team *newTeam = (struct Team*)malloc(sizeof(struct Team));
         newTeam->teamId = i+1;
         newTeam->name = malloc(strlen(teams[i])+ 1);
@@ -57,12 +58,10 @@ void initializeTeam(){
         }else{
             teamTail->next = newTeam;
             teamTail = newTeam;
-        }
-        
+        }    
     }
     return;
 }
-
 
 int getTeamId(const char *teamName){
     for(int i =0 ; i < teamCount ; i++){
@@ -81,7 +80,6 @@ int getRoleId(const char *roleName){
     }
     return -1;
 }
-
 
 struct NodePlayer *headPlayerLL = NULL;
 struct NodePlayer *tailPlayerLL = NULL;
@@ -109,8 +107,6 @@ void calAvgSR(){
     }
     return;
 }
-void freePlayers();
-void freeTeams();
 
 void initalizePlayers(){
     for(int index = 0; index < playerCount ; index++){
@@ -147,6 +143,7 @@ void initalizePlayers(){
         {
             if(updateTeam->teamId == newNodePlayer->teamID){
                 updateTeam->totalPlayers = updateTeam->totalPlayers + 1;
+                break;
             }
             updateTeam = updateTeam->next;
         }  
@@ -161,6 +158,7 @@ void addPlayerToTeam(){
     printf("Enter Team ID to add player: ");
     if(scanf("%d", &teamId) != 1){
         printf("Id should be the number only.");
+        while(getchar() != '\n');
         return;
     }
     if(teamId < 1 || teamId > 10){
@@ -187,18 +185,17 @@ void addPlayerToTeam(){
     printf("Player ID: \n");
     if(scanf("%d", &playerId) != 1){
         printf("Id should be the number only.");
+        while(getchar() != '\n');
         return;
     }
     if(playerId < MIN_ID || playerId > MAX_ID){
         printf("Invalid player id. It should be between %d to %d !", MIN_ID, MAX_ID);
         return;
     }
-    bool isIdUnique = true;
     temp = headPlayerLL;
     while (temp != NULL)
     {
         if(temp->id == playerId){
-            isIdUnique = false;
             printf("Player Id should be unique.");
             return;
         }
@@ -208,12 +205,14 @@ void addPlayerToTeam(){
     printf("Name: \n");
     if(fgets(playerName, MAX_NAME_LENGTH , stdin) == NULL){
         printf("Something went wrong.");
+        while (getchar() != '\n');
         return;
     }
     playerName[strcspn(playerName,"\n")]= '\0';
     printf("Role (1-Batsman, 2-Bowler, 3-All-rounder): \n");
     if(scanf("%d", &roleId) != 1){
         printf("Id should be the number only.");
+        while(getchar() != '\n');
         return;
     }
     if(roleId < 1 || roleId > 3){
@@ -223,26 +222,31 @@ void addPlayerToTeam(){
     printf("Total Runs: \n");
     if(scanf("%d", &totalRun) != 1){
         printf("Total number of run should be the number only.");
+        while(getchar() != '\n');
         return;
     }
     printf("Batting Average:\n");
     if(scanf("%f", &battingAvg) != 1){
         printf("It should be valid batting average.");
+        while(getchar() != '\n');
         return;
     }
     printf("Strike Rate:\n");
     if(scanf("%f", &strikeRate) != 1){
         printf("It should be valid Strike Rate.");
+        while(getchar() != '\n');
         return;
     }
     printf("Wickets:\n");
     if(scanf("%d", &wicket) != 1){
         printf("It should be valid wickets.");
+        while(getchar() != '\n');
         return;
     }
     printf("Economy Rate:\n");
     if(scanf("%f", &economyRate) != 1){
         printf("It should be valid economy rate.");
+        while(getchar() != '\n');
         return;
     }
 
@@ -258,17 +262,30 @@ void addPlayerToTeam(){
     newNodePlayer->strikeRate = strikeRate;
     newNodePlayer->wickets = wicket;
     newNodePlayer->economyRate = economyRate;
-     if(newNodePlayer->roleID  == BATSMAN){ // Batsman
-            newNodePlayer->PerformanceIndex = (newNodePlayer->battingAverage * newNodePlayer->strikeRate) /100; //(BattingAverage × StrikeRate) / 100
-        }else if(newNodePlayer->roleID  == BOWLER){ //Bowler
-            newNodePlayer->PerformanceIndex  = (newNodePlayer->wickets * 2) + (100 - newNodePlayer->economyRate);// (Wickets × 2) + (100 − EconomyRate)
-        }else if(newNodePlayer->roleID  == ALL_ROUNDER){ // All-rounder
-            newNodePlayer->PerformanceIndex = ((newNodePlayer->battingAverage * newNodePlayer->strikeRate ) / 100)+(newNodePlayer->wickets * 2);//[(BattingAverage × StrikeRate) / 100] + (Wickets × 2)
-        }
+
+    if(newNodePlayer->roleID  == BATSMAN){ // Batsman
+        newNodePlayer->PerformanceIndex = (newNodePlayer->battingAverage * newNodePlayer->strikeRate) /100; //(BattingAverage × StrikeRate) / 100
+    }else if(newNodePlayer->roleID  == BOWLER){ //Bowler
+        newNodePlayer->PerformanceIndex  = (newNodePlayer->wickets * 2) + (100 - newNodePlayer->economyRate);// (Wickets × 2) + (100 − EconomyRate)
+    }else if(newNodePlayer->roleID  == ALL_ROUNDER){ // All-rounder
+        newNodePlayer->PerformanceIndex = ((newNodePlayer->battingAverage * newNodePlayer->strikeRate ) / 100)+(newNodePlayer->wickets * 2);//[(BattingAverage × StrikeRate) / 100] + (Wickets × 2)
+    }
+
     newNodePlayer->next = NULL;
 
     tailPlayerLL->next = newNodePlayer;
     tailPlayerLL = newNodePlayer;
+
+    struct Team *updateTeam = teamHead;
+    while (updateTeam != NULL)
+    {
+        if(updateTeam->teamId == newNodePlayer->teamID){
+            updateTeam->totalPlayers = updateTeam->totalPlayers + 1;
+            break;
+        }
+        updateTeam = updateTeam->next;
+    }  
+
     calAvgSR();
     printf("Player added successfully to Team %s!\n", teams[teamId-1]);
     struct NodePlayer *lastPlayer = tailPlayerLL;
@@ -282,6 +299,7 @@ void getPlayersByTeamID(){
     printf("Enter Team ID: ");
     if(scanf("%d", &teamId) != 1){
         printf("Id should be the number only.");
+        while (getchar() != '\n');
         return;
     }
     if(teamId < 1 || teamId > 10){
@@ -356,6 +374,7 @@ void topKPlayers(){
     printf("EnterTeamID:");
     if(scanf("%d", &teamId) != 1){
         printf("Id should be the number only.");
+        while (getchar() != '\n');
         return;
     }
     if(teamId < 1 || teamId > 10){
@@ -365,6 +384,7 @@ void topKPlayers(){
     printf("EnterRole(1-Batsman,2-Bowler,3-All-rounder):");
     if(scanf("%d", &roleId) != 1){
         printf("Id should be the number only.");
+        while (getchar() != '\n');
         return;
     }
     if(roleId < 1 || roleId > 3){
@@ -374,6 +394,7 @@ void topKPlayers(){
     printf("Enter number of players:");
     if(scanf("%d", &k) != 1){
         printf("It should be the number only.");
+        while (getchar() != '\n');
         return;
     }
 
@@ -415,11 +436,30 @@ void topKPlayers(){
 }
 
 void getPlayerbyRoleId(){
+
+    struct NodePlayer *playerArray[playerCount];
+    struct NodePlayer *curr = headPlayerLL;
+    int index = 0;
+    while (curr != NULL)
+    {
+        playerArray[index++] = curr;
+        curr = curr->next;
+    }
+    for(int i = 0 ; i < playerCount-1 ; i++){
+        for(int j = 0 ; j < playerCount - i -1 ; j++){
+            if(playerArray[j]->PerformanceIndex > playerArray[j+1]->PerformanceIndex){
+                struct NodePlayer *temp = playerArray[j];
+                playerArray[j] = playerArray[j+1];
+                playerArray[j+1] = temp;
+            }
+        }
+    }
     printf("Choice5 -> Display All Players Across All Teams of specific role");
     int roleId;
     printf("\nEnter RoleID: ");
     if(scanf("%d", &roleId) != 1){
         printf("Id should be the number only.");
+        while (getchar() != '\n');
         return;
     }
     if(roleId < 1 || roleId > 3){
@@ -431,21 +471,40 @@ void getPlayerbyRoleId(){
     printf("====================================================================================\n");
     printf("ID | Name | Team | Role | Runs |  Avg |  SR |  Wkts | ER | Perf.IndexName\n");
     printf("====================================================================================\n");
-    struct NodePlayer *temp = headPlayerLL;
-    while(temp != NULL){
-        if(temp->roleID == roleId){
-            printf("%d | %s | %s | %s | %d | %0.1f | %.1f | %d | %.1f | %.1f\n", temp->id, temp->name, teams[temp->teamID -1], roles[temp->roleID -1], temp->totalRuns, temp->battingAverage, temp->strikeRate, temp->wickets, temp->economyRate, temp->PerformanceIndex);
-        }
-        temp = temp->next;
+    
+    for(int i = playerCount -1 ; i >= 0 ; i--){
+        if(playerArray[i]->roleID == roleId){
+            printf("%d | %s | %s | %s | %d | %0.1f | %.1f | %d | %.1f | %.1f\n", playerArray[i]->id , playerArray[i]->name, teams[playerArray[i]->teamID -1], roles[playerArray[i]->roleID -1], playerArray[i]->totalRuns, playerArray[i]->battingAverage, playerArray[i]->strikeRate, playerArray[i]->wickets, playerArray[i]->economyRate,playerArray[i]->PerformanceIndex );
+        }   
     }
     printf("====================================================================================\n");
-
     return;
 }
 
+void freePlayers() {
+    struct NodePlayer *temp = headPlayerLL;
+    while (temp != NULL) {
+        struct NodePlayer *next = temp->next;
 
+        free(temp->name);     // free string
+        free(temp);           // free node
+
+        temp = next;
+    }
+}
+void freeTeams() {
+    struct Team *temp = teamHead;
+    while (temp != NULL) {
+        struct Team *next = temp->next;
+
+        free(temp->name);     // free string
+        free(temp);           // free node
+
+        temp = next;
+    }
+}
 void printMenu(){
-    printf("==================================================================================\n");
+    printf("\n==================================================================================\n");
     printf("ICC ODI Player Performance Analyzer\n");
     printf("==================================================================================\n");
     printf("1. Add Player to Team\n");
@@ -463,7 +522,9 @@ void getChoice(){
     printf("\nEnter your choice: ");
     if(scanf("%d", &choice) != 1){
         printf("Invalid Number.");
+        while(getchar() != '\n');
         return;
+        // exit(0);
     }
     switch (choice)
     {
@@ -496,30 +557,6 @@ void getChoice(){
         break;
     }
 }
-
-void freePlayers() {
-    struct NodePlayer *temp = headPlayerLL;
-    while (temp != NULL) {
-        struct NodePlayer *next = temp->next;
-
-        free(temp->name);     // free string
-        free(temp);           // free node
-
-        temp = next;
-    }
-}
-void freeTeams() {
-    struct Team *temp = teamHead;
-    while (temp != NULL) {
-        struct Team *next = temp->next;
-
-        free(temp->name);     // free string
-        free(temp);           // free node
-
-        temp = next;
-    }
-}
-
 
 int main(){
 
