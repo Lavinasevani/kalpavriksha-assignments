@@ -46,8 +46,16 @@ struct Team *teamTail = NULL;
 void initializeTeam(){
     for(int i = 0; i < teamCount; i++){
         struct Team *newTeam = (struct Team*)malloc(sizeof(struct Team));
+        if(newTeam == NULL){
+            printf("Memory allocation Failed");
+            return;
+        }
         newTeam->teamId = i+1;
         newTeam->name = malloc(strlen(teams[i])+ 1);
+        if(newTeam->name == NULL){
+            printf("Memory allocation Failed");
+            return;
+        }
         strcpy(newTeam->name, teams[i]);
         newTeam->totalPlayers = 0;
         newTeam->avgBattingStrikerate = 0.0;
@@ -112,8 +120,16 @@ void initalizePlayers(){
     for(int index = 0; index < playerCount ; index++){
 
         struct NodePlayer *newNodePlayer = (struct NodePlayer*)malloc(sizeof(struct NodePlayer));
+        if(newNodePlayer== NULL){
+            printf("Memory allocation Failed");
+            return;
+        }
         newNodePlayer->id= players[index].id;
         newNodePlayer->name = malloc(strlen(players[index].name) + 1);
+        if(newNodePlayer->name == NULL){
+            printf("Memory allocation Failed");
+            return;
+        }
         strcpy(newNodePlayer->name, players[index].name);
         newNodePlayer->teamID = getTeamId(players[index].team);
         newNodePlayer->roleID = getRoleId(players[index].role);
@@ -251,9 +267,17 @@ void addPlayerToTeam(){
     }
 
     struct NodePlayer *newNodePlayer = (struct NodePlayer*)malloc(sizeof(struct NodePlayer));
+    if(newNodePlayer == NULL){
+            printf("Memory allocation Failed");
+            return;
+    }
 
     newNodePlayer->id= playerId;
     newNodePlayer->name = malloc(strlen(playerName) +1);
+    if(newNodePlayer->name == NULL){
+        printf("Memory allocation Failed");
+        return;
+    }
     strcpy(newNodePlayer->name, playerName);
     newNodePlayer->teamID = teamId;
     newNodePlayer->roleID = roleId;
@@ -447,7 +471,7 @@ void getPlayerbyRoleId(){
     }
     for(int i = 0 ; i < playerCount-1 ; i++){
         for(int j = 0 ; j < playerCount - i -1 ; j++){
-            if(playerArray[j]->PerformanceIndex > playerArray[j+1]->PerformanceIndex){
+            if(playerArray[j]->PerformanceIndex < playerArray[j+1]->PerformanceIndex){
                 struct NodePlayer *temp = playerArray[j];
                 playerArray[j] = playerArray[j+1];
                 playerArray[j+1] = temp;
@@ -472,7 +496,7 @@ void getPlayerbyRoleId(){
     printf("ID | Name | Team | Role | Runs |  Avg |  SR |  Wkts | ER | Perf.IndexName\n");
     printf("====================================================================================\n");
     
-    for(int i = playerCount -1 ; i >= 0 ; i--){
+    for(int i = 0 ; i < playerCount ; i++){
         if(playerArray[i]->roleID == roleId){
             printf("%d | %s | %s | %s | %d | %0.1f | %.1f | %d | %.1f | %.1f\n", playerArray[i]->id , playerArray[i]->name, teams[playerArray[i]->teamID -1], roles[playerArray[i]->roleID -1], playerArray[i]->totalRuns, playerArray[i]->battingAverage, playerArray[i]->strikeRate, playerArray[i]->wickets, playerArray[i]->economyRate,playerArray[i]->PerformanceIndex );
         }   
