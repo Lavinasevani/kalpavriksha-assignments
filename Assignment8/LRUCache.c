@@ -10,6 +10,8 @@
 #define BUFFER 50
 
 int TABLE_SIZE;
+int capacity;
+int currSize = 0;
 
 bool isPrime(int number){
     int divisor = 2;
@@ -45,14 +47,140 @@ typedef struct HashMap{
 }HashMap;
 
 //hash function (Division Method) -> decide the index of key 
+HashMap **bucket;
+
 int createCache(){
-    HashMap *hashMapArr[TABLE_SIZE];
+    bucket = (HashMap **)malloc(TABLE_SIZE * sizeof(HashMap *));
+    if(bucket == NULL){
+        printf("Memory alloaction failed.");
+        exit(EXIT_FAILURE);
+    }
+    for(int index = 0; index < TABLE_SIZE; index++){
+        bucket[index] = NULL;
+    }
     return 0;
+}
+
+bool containsKey(int key){
+    HashMap *curr = bucket[key % TABLE_SIZE];
+    while (curr != NULL)
+    {
+        if(curr->key == key){
+            return true;
+        }
+        curr = curr->next;
+    }
+    return false;
+}
+
+
+bool isFull(){
+    return capacity == currSize;
+}
+
+char* performGET(int key){
+    return "NULL";
+}
+
+void performPUT(int key, char *value){
+
+    if(containsKey(key)){ // Update the existing key's value
+        int index = key % TABLE_SIZE;
+        HashMap *curr = bucket[index];
+        while (curr != NULL)
+        {
+            if(curr->key == key){
+
+                Queue *temp = curr->queuePointer;
+
+                free(temp->value);
+                temp->value = malloc(strlen(value) + 1);
+                strcpy(temp->value, value);
+                if (temp == rear) return;
+                
+                if (temp == front) {
+                    front = front->next;
+                    if (front) front->prev = NULL;
+                }
+                else {
+                    temp->prev->next = temp->next;
+                    temp->next->prev = temp->prev;
+                }
+                temp->prev = rear;
+                temp->next = NULL;
+                rear->next = temp;
+                rear = temp;
+                printf("Key already exists so value updated successfully.\n");
+                printf("Key: %d , Updated Value: %s \n", rear->key, rear->value);
+                return;
+            }
+            curr = curr->next;
+        }
+    }
+    if(isFull()){ // evict the LRU 
+        printf("Cache is full. => ");
+        Queue *temp = front;
+        int evictedKey = front->key;
+        front = front->next;
+        if (front != NULL) {
+            front->prev = NULL;
+        } else {
+            rear = NULL; 
+        }
+
+        HashMap *curr = bucket[evictedKey % TABLE_SIZE];
+        HashMap *prev = NULL;
+        printf("Eviction Begin... => ");
+        while (curr != NULL) {
+            if (curr->key == evictedKey) {
+                if(prev == NULL){
+                    bucket[evictedKey % TABLE_SIZE] = curr->next; 
+                }else {
+                    prev->next = curr->next;
+                }
+                free(curr);
+                break;
+            }
+            prev = curr;
+            curr = curr->next;
+        }
+
+        free(temp->value);
+        free(temp);
+        printf("Node with key evicted : %d\n", evictedKey);
+        currSize--;
+
+    }
+    // add a new process at MRU 
+    Queue *node = (Queue *)malloc(sizeof(Queue));
+    node->key = key;
+    node->value = malloc(strlen(value) + 1);
+    strcpy(node->value, value);
+    node->next = NULL;
+    node->prev = rear;
+
+    if(front == NULL && rear == NULL){
+        front = node;
+        rear = node;
+    }else{
+        rear->next = node;
+        rear = node;
+    }
+    int index = key % TABLE_SIZE;
+    HashMap *hNode = malloc(sizeof(HashMap));
+    hNode->key = key;
+    hNode->queuePointer = node;
+    hNode->next = bucket[index];
+    bucket[index] = hNode;
+    currSize++;
+    printf("Put key performed successfully\n");
+    printf("MRU key : %d , Value: %s\n", rear->key, rear->value);
+    return;
+    
 }
 
 int main(){
     printf("Create Cache : ");
-    int capacity;
     if(scanf("%d", &capacity) != 1){
         printf("Invalid number.");
         while (getchar() != '\n');
@@ -105,6 +233,7 @@ int main(){
                 printf("Command : %s \t", command);
                 int key = atoi(k);
                 printf("Key : %d\n", key);
+                printf("%s\n", performGET(key));
             }
         }
         else if(strcmp(command, validCommands[1]) == 0){ //PUT
@@ -120,15 +249,16 @@ int main(){
                 continue;
             }
             else{
-                char *tokenNumber = strtok(NULL, " ");
-                if(tokenNumber == NULL){
+                char *token = strtok(NULL, " ");
+                if(token == NULL){
                     printf("Value is empty\n");
                     continue;
                 }
                 printf("Command : %s \t", command);
                 int key = atoi(k);
                 printf("Key : %d\t", key);
-                printf("Value: %s\n", tokenNumber);
+                printf("Value: %s\n", token);
+                performPUT(key, token);
             }
         }
         else if(strcmp(command, validCommands[2]) == 0){
