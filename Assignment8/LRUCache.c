@@ -11,115 +11,109 @@
 
 int TABLE_SIZE;
 int capacity;
-int currSize = 0;
+int currentSize = 0;
 
 bool isPrime(int number){
-    int divisor = 2;
-    for(int i = divisor; i < sqrt(number) ; i++){
-        if((number % i) == 0) return false;
+    int smallestDivisor = 2;
+    for(int divisor = smallestDivisor; divisor < sqrt(number) ; divisor++){
+        if((number % divisor) == 0) return false;
     }
     return true;
 }
 
 int nextPrime(int number){
-    for(int i = number+1; i <= LARGEST_PRIME; i++){
-        if(isPrime(i)){
-            return i;
+    for(int nextNumber = number + 1; nextNumber <= LARGEST_PRIME; nextNumber++){
+        if(isPrime(nextNumber)){
+            return nextNumber;
         }
     }
     return 0;
 }
 
-typedef struct Queue{
+typedef struct QueueNode{
     int key;
     char *value;
-    struct Queue *next;
-    struct Queue *prev;
-}Queue;
+    struct QueueNode *next;
+    struct QueueNode *prev;
+}QueueNode;
 
-Queue *front = NULL;
-Queue *rear = NULL;
+QueueNode *front = NULL; //LRU
+QueueNode *rear = NULL;  //MRU
 
-typedef struct HashMap{
+typedef struct HashNode{
     int key;
-    Queue *queuePointer;
-    struct HashMap *next;
-}HashMap;
+    QueueNode *nodeAddress;
+    struct HashNode *next;
+}HashNode;
 
-//hash function (Division Method) -> decide the index of key 
-HashMap **bucket;
+HashNode **hashTable;
 
 int createCache(){
-    bucket = (HashMap **)malloc(TABLE_SIZE * sizeof(HashMap *));
-    if(bucket == NULL){
+    hashTable = (HashNode **)malloc(TABLE_SIZE * sizeof(HashNode *));
+    if(hashTable == NULL){
         printf("Memory alloaction failed.");
         exit(EXIT_FAILURE);
     }
     for(int index = 0; index < TABLE_SIZE; index++){
-        bucket[index] = NULL;
+        hashTable[index] = NULL;
     }
     return 0;
 }
 
 bool containsKey(int key){
-    HashMap *curr = bucket[key % TABLE_SIZE];
-    while (curr != NULL)
+    HashNode *currentNode = hashTable[key % TABLE_SIZE];
+    while (currentNode  != NULL)
     {
-        if(curr->key == key){
+        if(currentNode ->key == key){
             return true;
         }
-        curr = curr->next;
+        currentNode  = currentNode ->next;
     }
     return false;
 }
 
-
-bool isFull(){
-    return capacity == currSize;
-}
-
-char* performGET(int key){
-    return "NULL";
+bool isCacheFull(){
+    return capacity == currentSize;
 }
 
 void performPUT(int key, char *value){
 
     if(containsKey(key)){ // Update the existing key's value
         int index = key % TABLE_SIZE;
-        HashMap *curr = bucket[index];
-        while (curr != NULL)
+        HashNode *currentNode = hashTable[index];
+        while (currentNode != NULL)
         {
-            if(curr->key == key){
+            if(currentNode->key == key){
 
-                Queue *temp = curr->queuePointer;
+                QueueNode *temp = currentNode->nodeAddress;
 
                 free(temp->value);
                 temp->value = malloc(strlen(value) + 1);
                 strcpy(temp->value, value);
-                if (temp == rear) return;
                 
-                if (temp == front) {
-                    front = front->next;
-                    if (front) front->prev = NULL;
+                if(temp != rear){
+                    if (temp == front) {
+                        front = front->next;
+                        if (front) front->prev = NULL;
+                    }
+                    else {
+                        temp->prev->next = temp->next;
+                        temp->next->prev = temp->prev;
+                    }
+                    temp->prev = rear;
+                    temp->next = NULL;
+                    rear->next = temp;
+                    rear = temp;
                 }
-                else {
-                    temp->prev->next = temp->next;
-                    temp->next->prev = temp->prev;
-                }
-                temp->prev = rear;
-                temp->next = NULL;
-                rear->next = temp;
-                rear = temp;
-                printf("Key already exists so value updated successfully.\n");
-                printf("Key: %d , Updated Value: %s \n", rear->key, rear->value);
+                printf("Key %d already exists so value updated successfully.\n", rear->key);
                 return;
             }
-            curr = curr->next;
+            currentNode = currentNode->next;
         }
     }
-    if(isFull()){ // evict the LRU 
+    if(isCacheFull()){ // evict the LRU 
         printf("Cache is full. => ");
-        Queue *temp = front;
+        QueueNode *oldFront = front;
         int evictedKey = front->key;
         front = front->next;
         if (front != NULL) {
@@ -128,13 +122,13 @@ void performPUT(int key, char *value){
             rear = NULL; 
         }
 
-        HashMap *curr = bucket[evictedKey % TABLE_SIZE];
-        HashMap *prev = NULL;
+        HashNode *curr = hashTable[evictedKey % TABLE_SIZE];
+        HashNode *prev = NULL;
         printf("Eviction Begin... => ");
         while (curr != NULL) {
             if (curr->key == evictedKey) {
                 if(prev == NULL){
-                    bucket[evictedKey % TABLE_SIZE] = curr->next; 
+                    hashTable[evictedKey % TABLE_SIZE] = curr->next; 
                 }else {
                     prev->next = curr->next;
                 }
@@ -145,14 +139,14 @@ void performPUT(int key, char *value){
             curr = curr->next;
         }
 
-        free(temp->value);
-        free(temp);
-        printf("Node with key evicted : %d\n", evictedKey);
-        currSize--;
+        free(oldFront->value);
+        free(oldFront);
+        printf("Node with key ( %d ) LRU evicted success\n", evictedKey);
+        currentSize--;
 
     }
     // add a new process at MRU 
-    Queue *node = (Queue *)malloc(sizeof(Queue));
+   QueueNode *node = (QueueNode *)malloc(sizeof(QueueNode));
     node->key = key;
     node->value = malloc(strlen(value) + 1);
     strcpy(node->value, value);
@@ -167,16 +161,68 @@ void performPUT(int key, char *value){
         rear = node;
     }
     int index = key % TABLE_SIZE;
-    HashMap *hNode = malloc(sizeof(HashMap));
-    hNode->key = key;
-    hNode->queuePointer = node;
-    hNode->next = bucket[index];
-    bucket[index] = hNode;
-    currSize++;
-    printf("Put key performed successfully\n");
-    printf("MRU key : %d , Value: %s\n", rear->key, rear->value);
+    HashNode *newhNode = malloc(sizeof(HashNode));
+    newhNode->key = key;
+    newhNode->nodeAddress = node;
+    newhNode->next = hashTable[index];
+    hashTable[index] = newhNode;
+    currentSize++;
     return;
     
+}
+
+char* performGET(int key){
+    if(!containsKey(key)){
+        return "NULL";
+    }
+    int index = key % TABLE_SIZE;
+    HashNode *hNode = hashTable[index];
+    while (hNode != NULL)
+    {
+        if(hNode->key  == key){
+            QueueNode *targetNode = hNode->nodeAddress;
+            // update MRU
+            if(targetNode == rear) return targetNode->value;
+
+            if(targetNode == front){
+                front = front->next;
+                front->prev = NULL;
+            } else {
+                targetNode->prev->next = targetNode->next;
+                targetNode->next->prev = targetNode->prev;
+            }
+            targetNode->prev = rear;
+            targetNode->next = NULL;
+            rear->next = targetNode;
+            rear = targetNode;
+            return targetNode->value;
+        }
+        hNode = hNode->next;
+    }
+    return "NULL";
+}
+
+void freeCache(){
+    QueueNode *temp = front;
+    while (temp != NULL)
+    {
+        QueueNode *nextNode = temp->next;
+        free(temp->value);
+        free(temp);
+        temp = nextNode;
+    }
+
+    for(int index = 0; index < TABLE_SIZE; index++){
+        HashNode *tempHash = hashTable[index];
+        while (tempHash != NULL)
+        {
+            HashNode *next = tempHash;
+            free(tempHash);
+            tempHash = next;
+        }   
+    }
+    free(hashTable);
+    return;
 }
 
 int main(){
@@ -230,9 +276,7 @@ int main(){
                 continue;
             }
             else{
-                printf("Command : %s \t", command);
                 int key = atoi(k);
-                printf("Key : %d\n", key);
                 printf("%s\n", performGET(key));
             }
         }
@@ -254,14 +298,13 @@ int main(){
                     printf("Value is empty\n");
                     continue;
                 }
-                printf("Command : %s \t", command);
                 int key = atoi(k);
-                printf("Key : %d\t", key);
-                printf("Value: %s\n", token);
                 performPUT(key, token);
             }
         }
         else if(strcmp(command, validCommands[2]) == 0){
+            free(input);
+            freeCache();
             exit(EXIT_SUCCESS); 
         }
         else{
