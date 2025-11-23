@@ -293,7 +293,7 @@ int main(){
                 continue;
             }
             else{
-                char *token = strtok(NULL, " ");
+                char *token = strtok(NULL, "");
                 if(token == NULL){
                     printf("Value is empty\n");
                     continue;
