@@ -6,6 +6,7 @@
 
 #define TABLE_SIZE 13
 #define BUFFER 100
+#define MAX_KILLS 50
 
 enum ProcessState { READY, RUNNING, WAITING, TERMINATED };
 
@@ -19,10 +20,13 @@ struct PCB {
     int ioRemainingTime;     
     int completionTime;    
     enum ProcessState state; 
+    bool wasKilled;
     struct PCB *next; 
 };
 
 struct PCB *bucket[TABLE_SIZE];
+
+
 
 struct QueueNode {
     struct PCB *process;
@@ -33,6 +37,14 @@ struct Queue {
     struct QueueNode *front;
     struct QueueNode *rear;
 };
+
+struct KillEvent {
+    int pid;
+    int killTime;
+};
+
+struct KillEvent killEvents[MAX_KILLS];
+int killEventCount = 0;
 
 struct Queue* createQueue() {
     struct Queue *q = malloc(sizeof(struct Queue));
@@ -67,16 +79,21 @@ struct PCB* dequeue(struct Queue *q) {
     return p;
 }
 
-struct PCB* peek(struct Queue *q) {
-    if (q->front == NULL) return NULL;
-    return q->front->process;
-}
-
 bool isValidNumber(const char *str) {
+
+    if (str == NULL || str[0] == '\0') return false;
+
+    if (strcmp(str, "-") == 0) return true;
+
     for (int i = 0; str[i]; i++) {
         if (str[i] < '0' || str[i] > '9') return false;
     }
     return true;
+}
+
+int parseNumber(const char *str) {
+    if (str == NULL || strcmp(str, "-") == 0) return 0;
+    return atoi(str);
 }
 
 bool isPIDUnique(int pid) {
@@ -87,6 +104,61 @@ bool isPIDUnique(int pid) {
         current = current->next;
     }
     return true;
+}
+
+struct PCB* findProcessByPID(int pid) {
+    int index = pid % TABLE_SIZE;
+    struct PCB *current = bucket[index];
+    while (current != NULL) {
+        if (current->PID == pid) return current;
+        current = current->next;
+    }
+    return NULL;
+}
+
+bool performKillCommand(char *input) {
+    char *tokens[3];
+    int i = 0;
+    
+    char inputCopy[BUFFER];
+    strcpy(inputCopy, input);
+    
+    char *token = strtok(inputCopy, " ");
+    while (token != NULL && i < 3) {
+        tokens[i++] = token;
+        token = strtok(NULL, " ");
+    }
+    
+    if (i != 3) {
+        printf("Invalid KILL format. Use: KILL <PID> <time>\n");
+        return false;
+    }
+    
+    if (strcmp(tokens[0], "KILL") != 0) {
+        return false;
+    }
+    
+    if (!isValidNumber(tokens[1]) || !isValidNumber(tokens[2])) {
+        printf("PID and time must be numbers.\n");
+        return false;
+    }
+    
+    int pid = parseNumber(tokens[1]);
+    int killTime = parseNumber(tokens[2]);
+    if (!findProcessByPID(pid)) {
+        printf("Error: PID %d does not exist.\n", pid);
+        return false;
+    }
+    
+    if (killEventCount < MAX_KILLS) {
+        killEvents[killEventCount].pid = pid;
+        killEvents[killEventCount].killTime = killTime;
+        killEventCount++;
+        return true;
+    } else {
+        printf("Error: Maximum kill events reached.\n");
+        return false;
+    }
 }
 
 void processInitialization(char *processDetails, struct Queue *readyQueue) {
@@ -137,7 +209,7 @@ void processInitialization(char *processDetails, struct Queue *readyQueue) {
     newBlock->ioRemainingTime = 0;
     newBlock->completionTime = 0;
     newBlock->state = READY;
-    
+    newBlock->wasKilled = false;
     newBlock->next = NULL;
     
     int index = newBlock->PID % TABLE_SIZE;
@@ -150,110 +222,170 @@ void processInitialization(char *processDetails, struct Queue *readyQueue) {
 
     enqueue(readyQueue, newBlock);
     
-    printf("Process %s (PID %d) added to PCB and Ready queue successfully.\n", newBlock->processName, newBlock->PID);
 }
 
 int systemClock = 0;
 
-void processWaitingQueue(struct Queue *waitingQueue, struct Queue *readyQueue) {
-    if (waitingQueue->front == NULL) return;
+bool removeFromQueue(struct Queue *q, int pid) {
+    if (q->front == NULL) return false;
     
     struct QueueNode *prev = NULL;
-    struct QueueNode *current = waitingQueue->front;
+    struct QueueNode *current = q->front;
     
     while (current != NULL) {
-        struct PCB *process = current->process;
-        process->ioRemainingTime--;
-        
-        printf("    [I/O] PID %d: I/O remaining %d units\n", 
-               process->PID, process->ioRemainingTime);
-        
-        if (process->ioRemainingTime <= 0) {
-            printf("    [I/O Complete] PID %d moved to Ready Queue\n", process->PID);
-            
-            process->state = READY;
-            enqueue(readyQueue, process);
-            
-            struct QueueNode *toRemove = current;
+        if (current->process->PID == pid) {
             if (prev == NULL) {
-                waitingQueue->front = current->next;
-                current = current->next;
+                q->front = current->next;
             } else {
                 prev->next = current->next;
-                current = current->next;
             }
             
-            if (toRemove == waitingQueue->rear) {
-                waitingQueue->rear = prev;
+            if (current == q->rear) {
+                q->rear = prev;
             }
             
-            free(toRemove);
+            free(current);
+            return true;
+        }
+        prev = current;
+        current = current->next;
+    }
+    return false;
+}
+
+void checkKillEvents(struct Queue *readyQueue, struct Queue *waitingQueue, struct Queue *terminatedQueue, struct PCB **runningProcess) {
+    for (int i = 0; i < killEventCount; i++) {
+        if (killEvents[i].killTime == systemClock) {
+            int pid = killEvents[i].pid;
+            struct PCB *process = findProcessByPID(pid);
+            
+            if (process == NULL || process->state == TERMINATED) {
+                continue;
+            }
+
+            if (runningProcess != NULL && *runningProcess != NULL && 
+                (*runningProcess)->PID == pid) {
+                (*runningProcess)->state = TERMINATED;
+                (*runningProcess)->completionTime = systemClock;
+                (*runningProcess)->wasKilled = true;
+                enqueue(terminatedQueue, *runningProcess);
+                *runningProcess = NULL;  
+            }
+            else if (removeFromQueue(readyQueue, pid)) {
+                process->state = TERMINATED;
+                process->completionTime = systemClock;
+                process->wasKilled = true;
+                enqueue(terminatedQueue, process);
+            }
+            else if (removeFromQueue(waitingQueue, pid)) {
+                process->state = TERMINATED;
+                process->completionTime = systemClock;
+                process->wasKilled = true;
+                enqueue(terminatedQueue, process);
+            }
+        }
+    }
+}
+
+void processWaitingQueue(struct Queue *waitingQueue, struct Queue *readyQueue) {
+    struct QueueNode *prev = NULL, *curr = waitingQueue->front;
+    while (curr) {
+        struct QueueNode *nextNode = curr->next;
+        struct PCB *p = curr->process;
+        p->ioRemainingTime--;
+        if (p->ioRemainingTime <= 0) {
+            p->state = READY;
+            enqueue(readyQueue, p);
+            if (!prev) waitingQueue->front = nextNode;
+            else prev->next = nextNode;
+            if (curr == waitingQueue->rear) waitingQueue->rear = prev;
+            free(curr);
         } else {
-            prev = current;
-            current = current->next;
+            prev = curr;
         }
+        curr = nextNode;
     }
 }
 
-void executeTick(struct PCB *current, struct Queue *readyQueue, struct Queue *waitingQueue, struct Queue *terminatedQueue) {
-    
-    current->state = RUNNING;
-    printf("\n[Tick %d] Running: PID %d (%s) | Executed: %d/%d\n", systemClock, current->PID, current->processName, current->executedTime, current->burstTime);
-    
-    sleep(1);  
-    current->executedTime++;
-    systemClock++;
-    
-    if (current->executedTime == current->ioStartTime && current->ioDuration > 0) {
-        printf("  [I/O Request] PID %d starting I/O (%d units)\n", 
-               current->PID, current->ioDuration);
-        current->state = WAITING;
-        current->ioRemainingTime = current->ioDuration;
-        enqueue(waitingQueue, current);
+void executeProcess(struct PCB *p, struct Queue *readyQueue, struct Queue *waitingQueue, struct Queue *terminatedQueue) {
+    while (p) {
+        p->state = RUNNING;
+        checkKillEvents(readyQueue, waitingQueue, terminatedQueue, &p);
+        if (!p) return;
+
+        p->executedTime++;
+        systemClock++;
+    if (p->ioDuration > 0 && p->executedTime == p->ioStartTime) {
+            p->state = WAITING;
+            p->ioRemainingTime = p->ioDuration;
+            enqueue(waitingQueue, p);
+            return;
+        }
+
+        if (p->executedTime >= p->burstTime) {
+            p->state = TERMINATED;
+            p->completionTime = systemClock;
+            enqueue(terminatedQueue, p);
+            return;
+        }
+
+        processWaitingQueue(waitingQueue, readyQueue);
     }
-    else if (current->executedTime >= current->burstTime) {
-        printf("  [Completed] PID %d finished execution\n", current->PID);
-        current->state = TERMINATED;
-        current->completionTime = systemClock;
-        enqueue(terminatedQueue, current);
-    }
-    else {
-        current->state = READY;
-        enqueue(readyQueue, current);
-    }
-    
-    processWaitingQueue(waitingQueue, readyQueue);
 }
 
-void runScheduler(struct Queue *readyQueue, struct Queue *waitingQueue, 
-                  struct Queue *terminatedQueue) {
-    printf("\n=== Starting FCFS Scheduler with I/O Handling ===\n");
-    
-    // Continue while there are processes in ready or waiting queues
-    while (readyQueue->front != NULL || waitingQueue->front != NULL) {
-        
-        // If ready queue has processes, execute one tick
-        if (readyQueue->front != NULL) {
-            struct PCB *current = dequeue(readyQueue);
-            executeTick(current, readyQueue, waitingQueue, terminatedQueue);
-        } 
-        // If ready queue is empty but waiting queue has processes (CPU idle)
-        else if (waitingQueue->front != NULL) {
-            printf("\n[Tick %d] CPU IDLE - All processes in I/O\n", systemClock);
-            sleep(1);
+void runScheduler(struct Queue *readyQueue, struct Queue *waitingQueue, struct Queue *terminatedQueue) {
+    struct PCB *current = NULL;
+
+    while (readyQueue->front || waitingQueue->front || current) {
+        if (!current && readyQueue->front) {
+            current = dequeue(readyQueue);
+        }
+        if (current) {
+            current->state = RUNNING;
+            current->executedTime++;
             systemClock++;
-            processWaitingQueue(waitingQueue, readyQueue);
+
+            if (current->ioDuration > 0 && current->executedTime == current->ioStartTime) {
+                current->state = WAITING;
+                current->ioRemainingTime = current->ioDuration;
+                enqueue(waitingQueue, current);
+                current = NULL;
+            }
+            else if (current->executedTime >= current->burstTime) {
+                current->state = TERMINATED;
+                current->completionTime = systemClock;
+                enqueue(terminatedQueue, current);
+                current = NULL;
+            }
+        } else {
+            systemClock++;
+        }
+
+        struct QueueNode *prev = NULL;
+        struct QueueNode *currNode = waitingQueue->front;
+        while (currNode) {
+            struct PCB *p = currNode->process;
+            p->ioRemainingTime--;
+            if (p->ioRemainingTime <= 0) {
+                p->state = READY;
+                enqueue(readyQueue, p);
+                struct QueueNode *temp = currNode;
+                if (!prev) waitingQueue->front = currNode->next;
+                else prev->next = currNode->next;
+                if (currNode == waitingQueue->rear) waitingQueue->rear = prev;
+                currNode = currNode->next;
+                free(temp);
+            } else {
+                prev = currNode;
+                currNode = currNode->next;
+            }
         }
     }
-    
-    printf("\n=== All processes completed ===\n");
 }
 
 
 void displayStatistics(struct Queue *terminatedQueue) {
-    printf("\n=== Final Statistics ===\n");
-    printf("%-6s %-12s %-8s %-8s %-12s %-10s\n", 
-           "PID", "Name", "CPU", "I/O", "Turnaround", "Waiting");
+    printf("%-6s %-12s %-8s %-8s %-12s %-10s\n", "PID", "Name", "CPU", "I/O", "Turnaround", "Waiting");
     
     struct PCB *p;
     while ((p = dequeue(terminatedQueue)) != NULL) {
@@ -276,7 +408,7 @@ int main() {
     
     char processDetails[BUFFER];
 
-    printf("\nEnter process details in format: <name> <PID> <burst> <ioStart> <ioDuration>\n");
+    printf("\nEnter process details in format: <name> <PID> <burst> <ioStart> <ioDuration> or KILL command: KILL <PID> <time>\n");
     
     while (1) {
         printf("Enter process (or type 'exit' to finish): ");
@@ -286,10 +418,12 @@ int main() {
 
         if (strcmp(processDetails, "exit") == 0) break;
 
-        processInitialization(processDetails, readyQueue);
+         if (strncmp(processDetails, "KILL", 4) == 0) {
+            performKillCommand(processDetails);
+        } else {
+            processInitialization(processDetails, readyQueue);
+        }
     }
-
-    printf("\nAll processes stored in PCB hash table.\n");
 
     runScheduler(readyQueue, waitingQueue, terminatedQueue);
     
