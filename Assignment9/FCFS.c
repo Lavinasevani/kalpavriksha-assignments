@@ -1,0 +1,160 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdbool.h>
+
+#define TABLE_SIZE 13
+#define BUFFER 100
+
+struct PCB {
+    char *processName;
+    int PID;
+    int burstTime;
+    int ioStartTime;
+    int ioDuration;
+    struct PCB *next; 
+};
+
+struct PCB *bucket[TABLE_SIZE];
+
+struct QueueNode {
+    struct PCB *process;
+    struct QueueNode *next;
+};
+
+struct Queue {
+    struct QueueNode *front;
+    struct QueueNode *rear;
+};
+
+struct Queue* createQueue() {
+    struct Queue *q = malloc(sizeof(struct Queue));
+    q->front = q->rear = NULL;
+    return q;
+}
+
+void enqueue(struct Queue *q, struct PCB *p) {
+    struct QueueNode *node = malloc(sizeof(struct QueueNode));
+    node->process = p;
+    node->next = NULL;
+
+    if (q->rear == NULL) {
+        q->front = q->rear = node;
+        return;
+    }
+
+    q->rear->next = node;
+    q->rear = node;
+}
+
+struct PCB* dequeue(struct Queue *q) {
+    if (q->front == NULL) return NULL;
+
+    struct QueueNode *temp = q->front;
+    struct PCB *p = temp->process;
+
+    q->front = q->front->next;
+    if (q->front == NULL) q->rear = NULL;
+
+    free(temp);
+    return p;
+}
+
+bool isValidNumber(const char *str) {
+    for (int i = 0; str[i]; i++) {
+        if (str[i] < '0' || str[i] > '9') return false;
+    }
+    return true;
+}
+
+bool isPIDUnique(int pid) {
+    int index = pid % TABLE_SIZE;
+    struct PCB *current = bucket[index];
+    while (current != NULL) {
+        if (current->PID == pid) return false;
+        current = current->next;
+    }
+    return true;
+}
+
+void processInitialization(char *processDetails) {
+    char *tokens[5];
+    int i = 0;
+
+    char *token = strtok(processDetails, " ");
+    while (token != NULL && i < 5) {
+        tokens[i++] = token;
+        token = strtok(NULL, " ");
+    }
+
+    if (i != 5) {
+        printf("Invalid input format. Use: <Process_name> <PID> <burst> <ioStart> <ioDuration>\n");
+        return;
+    }
+
+    for (int j = 1; j <= 4; j++) {
+        if (!isValidNumber(tokens[j])) {     
+            if(j == 1){
+                printf("PID should be number only.\n");
+            }else if(j ==2){
+                printf("Burst Time should be number only.\n");
+            }else if(j == 3){
+                printf("Invalid ioStart time\n");
+            }
+            else{
+                printf("Invalid ioDuration\n");
+            }
+            return;
+        }
+    }
+
+    int pid = atoi(tokens[1]);
+    if (!isPIDUnique(pid)) {
+        printf("Error: PID %d already exists. Enter a unique PID.\n", pid);
+        return;
+    }
+
+    struct PCB *newBlock = malloc(sizeof(struct PCB));
+    newBlock->processName = malloc(strlen(tokens[0]) + 1);
+    strcpy(newBlock->processName, tokens[0]);
+    newBlock->PID = atoi(tokens[1]);
+    newBlock->burstTime = atoi(tokens[2]);
+    newBlock->ioStartTime = atoi(tokens[3]);
+    newBlock->ioDuration = atoi(tokens[4]);
+    newBlock->next = NULL;
+
+    int index = newBlock->PID % TABLE_SIZE;
+    if (bucket[index] == NULL) {
+        bucket[index] = newBlock;
+    } else {
+        newBlock->next = bucket[index];
+        bucket[index] = newBlock;
+    }
+
+    printf("Process %s (PID %d) added to PCB successfully.\n", newBlock->processName, newBlock->PID);
+}
+
+int main() {
+    struct Queue *readyQueue = createQueue();
+    struct Queue *waitingQueue = createQueue();
+    struct Queue *terminatedQueue = createQueue();
+
+    char processDetails[BUFFER];
+
+    printf("\nEnter process details in format: <name> <PID> <burst> <ioStart> <ioDuration>\n");
+
+    while (1) {
+        printf("Enter process (or type 'exit' to finish): ");
+        if (fgets(processDetails, BUFFER, stdin) == NULL) continue;
+
+        processDetails[strcspn(processDetails, "\n")] = 0;
+
+        if (strcmp(processDetails, "exit") == 0) break;
+
+        processInitialization(processDetails);
+    }
+
+    printf("\nAll processes stored in PCB hash table.\n");
+
+    return 0;
+}
