@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <unistd.h> 
 
 #define TABLE_SIZE 13
 #define BUFFER 100
@@ -147,18 +148,53 @@ void processInitialization(char *processDetails, struct Queue *readyQueue) {
     printf("Process %s (PID %d) added to PCB and Ready queue successfully.\n", newBlock->processName, newBlock->PID);
 }
 
-void displayQueue(struct Queue *q, const char *queueName) {
-    printf("\n%s Queue: ", queueName);
-    if (q->front == NULL) {
-        printf("Empty\n");
-        return;
+int systemClock = 0;
+
+void runScheduler(struct Queue *readyQueue, struct Queue *terminatedQueue) {
+    
+    while (readyQueue->front != NULL) {
+        struct PCB *current = dequeue(readyQueue);
+        
+        if (current == NULL) break;
+        
+        current->state = RUNNING;
+        printf("\n[Tick %d] Running Process: PID %d (%s)\n", 
+               systemClock, current->PID, current->processName);
+        
+        for (int i = 0; i < current->burstTime; i++) {
+            sleep(1); 
+            current->executedTime++;
+            systemClock++;
+            
+            printf("  Tick %d: PID %d executed %d/%d units\n", 
+                   systemClock, current->PID, current->executedTime, current->burstTime);
+        }
+        
+        current->state = TERMINATED;
+        current->completionTime = systemClock;
+        enqueue(terminatedQueue, current);
+        
+        printf("  PID %d completed at Tick %d\n", current->PID, systemClock);
     }
-    struct QueueNode *temp = q->front;
-    while (temp != NULL) {
-        printf("PID %d (%s) -> ", temp->process->PID, temp->process->processName);
-        temp = temp->next;
+ 
+}
+
+void displayStatistics(struct Queue *terminatedQueue) {
+    printf("%-6s %-12s %-8s %-8s %-12s %-10s\n", "PID", "Name", "CPU", "I/O", "Turnaround", "Waiting");
+    
+    struct PCB *p;
+    while ((p = dequeue(terminatedQueue)) != NULL) {
+        int turnaroundTime = p->completionTime;
+        
+        int waitingTime = turnaroundTime - p->burstTime - p->ioDuration;
+        
+        printf("%-6d %-12s %-8d %-8d %-12d %-10d\n",
+               p->PID, p->processName, p->burstTime, p->ioDuration, 
+               turnaroundTime, waitingTime);
+        
+        free(p->processName);
+        free(p);
     }
-    printf("NULL\n");
 }
 
 int main() {
@@ -183,7 +219,13 @@ int main() {
 
     printf("\nAll processes stored in PCB hash table.\n");
 
-    displayQueue(readyQueue, "Ready");
+    runScheduler(readyQueue, terminatedQueue);
     
+    displayStatistics(terminatedQueue);
+    
+    free(readyQueue);
+    free(waitingQueue);
+    free(terminatedQueue);
+
     return 0;
 }
