@@ -6,12 +6,18 @@
 #define TABLE_SIZE 13
 #define BUFFER 100
 
+enum ProcessState { READY, RUNNING, WAITING, TERMINATED };
+
 struct PCB {
     char *processName;
     int PID;
     int burstTime;
     int ioStartTime;
     int ioDuration;
+    int executedTime;       
+    int ioRemainingTime;     
+    int completionTime;    
+    enum ProcessState state; 
     struct PCB *next; 
 };
 
@@ -77,7 +83,7 @@ bool isPIDUnique(int pid) {
     return true;
 }
 
-void processInitialization(char *processDetails) {
+void processInitialization(char *processDetails, struct Queue *readyQueue) {
     char *tokens[5];
     int i = 0;
 
@@ -113,16 +119,21 @@ void processInitialization(char *processDetails) {
         printf("Error: PID %d already exists. Enter a unique PID.\n", pid);
         return;
     }
-
+    
     struct PCB *newBlock = malloc(sizeof(struct PCB));
     newBlock->processName = malloc(strlen(tokens[0]) + 1);
     strcpy(newBlock->processName, tokens[0]);
-    newBlock->PID = atoi(tokens[1]);
+    newBlock->PID = pid;
     newBlock->burstTime = atoi(tokens[2]);
     newBlock->ioStartTime = atoi(tokens[3]);
     newBlock->ioDuration = atoi(tokens[4]);
+    newBlock->executedTime = 0;
+    newBlock->ioRemainingTime = 0;
+    newBlock->completionTime = 0;
+    newBlock->state = READY;
+    
     newBlock->next = NULL;
-
+    
     int index = newBlock->PID % TABLE_SIZE;
     if (bucket[index] == NULL) {
         bucket[index] = newBlock;
@@ -131,18 +142,34 @@ void processInitialization(char *processDetails) {
         bucket[index] = newBlock;
     }
 
-    printf("Process %s (PID %d) added to PCB successfully.\n", newBlock->processName, newBlock->PID);
+    enqueue(readyQueue, newBlock);
+    
+    printf("Process %s (PID %d) added to PCB and Ready queue successfully.\n", newBlock->processName, newBlock->PID);
+}
+
+void displayQueue(struct Queue *q, const char *queueName) {
+    printf("\n%s Queue: ", queueName);
+    if (q->front == NULL) {
+        printf("Empty\n");
+        return;
+    }
+    struct QueueNode *temp = q->front;
+    while (temp != NULL) {
+        printf("PID %d (%s) -> ", temp->process->PID, temp->process->processName);
+        temp = temp->next;
+    }
+    printf("NULL\n");
 }
 
 int main() {
     struct Queue *readyQueue = createQueue();
     struct Queue *waitingQueue = createQueue();
     struct Queue *terminatedQueue = createQueue();
-
+    
     char processDetails[BUFFER];
 
     printf("\nEnter process details in format: <name> <PID> <burst> <ioStart> <ioDuration>\n");
-
+    
     while (1) {
         printf("Enter process (or type 'exit' to finish): ");
         if (fgets(processDetails, BUFFER, stdin) == NULL) continue;
@@ -151,10 +178,12 @@ int main() {
 
         if (strcmp(processDetails, "exit") == 0) break;
 
-        processInitialization(processDetails);
+        processInitialization(processDetails, readyQueue);
     }
 
     printf("\nAll processes stored in PCB hash table.\n");
 
+    displayQueue(readyQueue, "Ready");
+    
     return 0;
 }
