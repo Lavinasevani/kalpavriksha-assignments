@@ -48,12 +48,20 @@ int killEventCount = 0;
 
 struct Queue* createQueue() {
     struct Queue *q = malloc(sizeof(struct Queue));
+    if (q == NULL) {
+        printf("Error: Memory allocation failed for queue\n");
+        exit(1);
+    }
     q->front = q->rear = NULL;
     return q;
 }
 
 void enqueue(struct Queue *q, struct PCB *p) {
     struct QueueNode *node = malloc(sizeof(struct QueueNode));
+    if (node == NULL) {
+        printf("Error: Memory allocation failed for queue node\n");
+        return;
+    }
     node->process = p;
     node->next = NULL;
 
@@ -83,7 +91,7 @@ bool isValidNumber(const char *str) {
 
     if (str == NULL || str[0] == '\0') return false;
 
-    if (strcmp(str, "-") == 0) return true;
+    if (strcmp(str, "-") == 0) return true; // Accept "-" this indicate no I/O (treated as 0)
 
     for (int i = 0; str[i]; i++) {
         if (str[i] < '0' || str[i] > '9') return false;
@@ -91,7 +99,7 @@ bool isValidNumber(const char *str) {
     return true;
 }
 
-int parseNumber(const char *str) {
+int parseNumber(const char *str) { // convert "-" to 0 (no I/O operation)
     if (str == NULL || strcmp(str, "-") == 0) return 0;
     return atoi(str);
 }
@@ -199,7 +207,16 @@ void processInitialization(char *processDetails, struct Queue *readyQueue) {
     }
     
     struct PCB *newBlock = malloc(sizeof(struct PCB));
+    if (newBlock == NULL) {
+        printf("Error: Memory allocation failed for PCB\n");
+        return;
+    }    
     newBlock->processName = malloc(strlen(tokens[0]) + 1);
+    if (newBlock->processName == NULL) {
+        printf("Error: Memory allocation failed for process name\n");
+        free(newBlock);
+        return;
+    }
     strcpy(newBlock->processName, tokens[0]);
     newBlock->PID = pid;
     newBlock->burstTime = atoi(tokens[2]);
@@ -307,31 +324,82 @@ void processWaitingQueue(struct Queue *waitingQueue, struct Queue *readyQueue) {
     }
 }
 
-void executeProcess(struct PCB *p, struct Queue *readyQueue, struct Queue *waitingQueue, struct Queue *terminatedQueue) {
-    while (p) {
-        p->state = RUNNING;
-        checkKillEvents(readyQueue, waitingQueue, terminatedQueue, &p);
-        if (!p) return;
+// void executeProcess(struct PCB *p, struct Queue *readyQueue, struct Queue *waitingQueue, struct Queue *terminatedQueue) {
+//     while (p) {
+//         p->state = RUNNING;
+//         checkKillEvents(readyQueue, waitingQueue, terminatedQueue, &p);
+//         if (!p) return;
 
-        p->executedTime++;
-        systemClock++;
-    if (p->ioDuration > 0 && p->executedTime == p->ioStartTime) {
-            p->state = WAITING;
-            p->ioRemainingTime = p->ioDuration;
-            enqueue(waitingQueue, p);
-            return;
-        }
+//         p->executedTime++;
+//         systemClock++;
+//     if (p->ioDuration > 0 && p->executedTime == p->ioStartTime) {
+//             p->state = WAITING;
+//             p->ioRemainingTime = p->ioDuration;
+//             enqueue(waitingQueue, p);
+//             return;
+//         }
 
-        if (p->executedTime >= p->burstTime) {
-            p->state = TERMINATED;
-            p->completionTime = systemClock;
-            enqueue(terminatedQueue, p);
-            return;
-        }
+//         if (p->executedTime >= p->burstTime) {
+//             p->state = TERMINATED;
+//             p->completionTime = systemClock;
+//             enqueue(terminatedQueue, p);
+//             return;
+//         }
 
-        processWaitingQueue(waitingQueue, readyQueue);
-    }
-}
+//         processWaitingQueue(waitingQueue, readyQueue);
+//     }
+// }
+
+// void runScheduler(struct Queue *readyQueue, struct Queue *waitingQueue, struct Queue *terminatedQueue) {
+//     struct PCB *current = NULL;
+
+//     while (readyQueue->front || waitingQueue->front || current) {
+//         if (!current && readyQueue->front) {
+//             current = dequeue(readyQueue);
+//         }
+//         if (current) {
+//             current->state = RUNNING;
+//             current->executedTime++;
+//             systemClock++;
+
+//             if (current->ioDuration > 0 && current->executedTime == current->ioStartTime) {
+//                 current->state = WAITING;
+//                 current->ioRemainingTime = current->ioDuration;
+//                 enqueue(waitingQueue, current);
+//                 current = NULL;
+//             }
+//             else if (current->executedTime >= current->burstTime) {
+//                 current->state = TERMINATED;
+//                 current->completionTime = systemClock;
+//                 enqueue(terminatedQueue, current);
+//                 current = NULL;
+//             }
+//         } else {
+//             systemClock++;
+//         }
+
+//         struct QueueNode *prev = NULL;
+//         struct QueueNode *currNode = waitingQueue->front;
+//         while (currNode) {
+//             struct PCB *p = currNode->process;
+//             p->ioRemainingTime--;
+//             if (p->ioRemainingTime <= 0) {
+//                 p->state = READY;
+//                 enqueue(readyQueue, p);
+//                 struct QueueNode *temp = currNode;
+//                 if (!prev) waitingQueue->front = currNode->next;
+//                 else prev->next = currNode->next;
+//                 if (currNode == waitingQueue->rear) waitingQueue->rear = prev;
+//                 currNode = currNode->next;
+//                 free(temp);
+//             } else {
+//                 prev = currNode;
+//                 currNode = currNode->next;
+//             }
+//         }
+//     }
+// }
+
 
 void runScheduler(struct Queue *readyQueue, struct Queue *waitingQueue, struct Queue *terminatedQueue) {
     struct PCB *current = NULL;
@@ -340,10 +408,36 @@ void runScheduler(struct Queue *readyQueue, struct Queue *waitingQueue, struct Q
         if (!current && readyQueue->front) {
             current = dequeue(readyQueue);
         }
+        
         if (current) {
             current->state = RUNNING;
             current->executedTime++;
             systemClock++;
+            
+            checkKillEvents(readyQueue, waitingQueue, terminatedQueue, &current);
+            
+            if (current == NULL) {
+                struct QueueNode *prev = NULL;
+                struct QueueNode *currNode = waitingQueue->front;
+                while (currNode) {
+                    struct PCB *p = currNode->process;
+                    p->ioRemainingTime--;
+                    if (p->ioRemainingTime <= 0) {
+                        p->state = READY;
+                        enqueue(readyQueue, p);
+                        struct QueueNode *temp = currNode;
+                        if (!prev) waitingQueue->front = currNode->next;
+                        else prev->next = currNode->next;
+                        if (currNode == waitingQueue->rear) waitingQueue->rear = prev;
+                        currNode = currNode->next;
+                        free(temp);
+                    } else {
+                        prev = currNode;
+                        currNode = currNode->next;
+                    }
+                }
+                continue;
+            }
 
             if (current->ioDuration > 0 && current->executedTime == current->ioStartTime) {
                 current->state = WAITING;
@@ -359,6 +453,7 @@ void runScheduler(struct Queue *readyQueue, struct Queue *waitingQueue, struct Q
             }
         } else {
             systemClock++;
+            checkKillEvents(readyQueue, waitingQueue, terminatedQueue, &current);
         }
 
         struct QueueNode *prev = NULL;
@@ -382,7 +477,6 @@ void runScheduler(struct Queue *readyQueue, struct Queue *waitingQueue, struct Q
         }
     }
 }
-
 
 void displayStatistics(struct Queue *terminatedQueue) {
     printf("%-6s %-12s %-8s %-8s %-12s %-10s\n", "PID", "Name", "CPU", "I/O", "Turnaround", "Waiting");
